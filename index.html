@@ -343,7 +343,7 @@
   <div class="paste-row">
     <label for="pasteInput">Already have results? Paste your link.</label>
     <div class="paste-input-wrap">
-      <input id="pasteInput" type="url" inputmode="url" autocomplete="off" placeholder="paste #invite=… or #results=… or #trio=…" />
+      <input id="pasteInput" type="url" inputmode="url" autocomplete="off" placeholder="paste #me=… or #us=… or #trio=…" />
       <button id="pasteGo" type="button">Go →</button>
     </div>
     <div class="paste-msg" id="pasteMsg"></div>
@@ -391,31 +391,26 @@
   /**
    * Parse a pasted link and return { page, hash } or { error }.
    * Accepts:
-   *   - full URLs with a hash (#invite=…, #results=…, #trio=…)
-   *   - bare hashes ("#invite=…" or "invite=…")
-   *   - the encoded payload alone (best-effort: decode, look at .q / .m)
+   *   - full URLs with a hash (#me=…, #us=…, #trio=…)
+   *   - bare hashes ("#me=…" or "me=…")
+   *   - legacy hashes (#invite=…, #results=…) — back-compat
    */
+  const QUIZ_KINDS = ['me', 'us', 'invite', 'results'];
+
   function routeFromInput(raw) {
     if (!raw) return { error: 'Paste a quiz link first.' };
     raw = raw.trim();
 
-    // Extract a hash-like fragment.
     let frag = '';
     const hashIdx = raw.indexOf('#');
     if (hashIdx >= 0) {
       frag = raw.slice(hashIdx + 1);
-    } else if (/^(invite|results|trio)=/.test(raw)) {
+    } else if (/^(me|us|invite|results|trio)=/.test(raw)) {
       frag = raw;
     } else {
-      // Last resort: maybe the whole thing is the encoded payload.
-      const decoded = b64urlDecode(raw);
-      if (decoded && decoded.m) {
-        return routeFromPayload(decoded);
-      }
       return { error: "That doesn't look like a quiz link." };
     }
 
-    // frag is now "invite=…" / "results=…" / "trio=…"
     const eq = frag.indexOf('=');
     if (eq < 0) return { error: "That link is missing its data part." };
     const kind = frag.slice(0, eq).toLowerCase();
@@ -427,7 +422,7 @@
       return { page: 'combo.html', hash: '#trio=' + value };
     }
 
-    if (kind === 'invite' || kind === 'results') {
+    if (QUIZ_KINDS.indexOf(kind) >= 0) {
       const data = b64urlDecode(value);
       if (!data) return { error: "Couldn't decode that link." };
       const quizId = data.q;
@@ -438,19 +433,6 @@
     }
 
     return { error: "Unrecognized link type." };
-  }
-
-  // Used when someone pastes just a base64 payload — we route by .m / .q.
-  function routeFromPayload(data) {
-    if (data.m === 'trio') {
-      // Re-encode? No — we don't have the original encoding. But we can ship them to combo
-      // with an error, or politely ask for the full link. Best to ask.
-      return { error: "Paste the full trio link (the part starting with #trio=)." };
-    }
-    if ((data.m === 'invite' || data.m === 'results' || data.m === 'together') && data.q && QUIZ_PAGES[data.q]) {
-      return { error: "Paste the full link, including the part with # and the long string." };
-    }
-    return { error: "Couldn't make sense of that." };
   }
 
   function go() {

@@ -83,52 +83,6 @@ h1.title .accent {
   max-width: 38ch;
 }
 
-/* mode picker */
-.modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 22px;
-}
-.mode-btn {
-  background: white;
-  border: 2px solid var(--ink);
-  border-radius: 16px;
-  padding: 14px 14px 16px;
-  cursor: pointer;
-  text-align: left;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
-  transition: transform .14s ease, box-shadow .14s ease, background .14s ease;
-}
-.mode-btn .mode-label {
-  display: block;
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 4px;
-}
-.mode-btn .mode-name {
-  font-family: 'Fraunces', serif;
-  font-style: italic; font-weight: 700;
-  font-size: 20px; line-height: 1.05;
-  letter-spacing: -0.01em;
-  margin-bottom: 4px;
-}
-.mode-btn .mode-sub {
-  font-size: 12px; line-height: 1.3;
-  color: var(--ink-soft);
-}
-.mode-btn:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--ink);
-}
-.mode-btn.selected {
-  background: var(--accent-soft);
-  box-shadow: 4px 4px 0 var(--accent);
-}
-
 .name-fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
 .field {
   background: white;
@@ -573,6 +527,40 @@ h1.title .accent {
   transition: opacity .3s ease;
 }
 .share-confirm.show { opacity: 1; }
+
+/* compare block — paste partner's link to merge into a 4-dot view */
+.compare-block { margin-top: 18px; }
+.compare-label {
+  display: block;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 10px;
+}
+.compare-block .share-url::placeholder { color: var(--ink-fade); font-style: italic; }
+.compare-msg {
+  margin-top: 8px;
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-faint);
+  min-height: 18px;
+}
+.compare-msg.error { color: var(--accent); }
+.share-copy.compare-go { box-shadow: 3px 3px 0 var(--ink); }
+.share-copy.compare-go:active { box-shadow: 1px 1px 0 var(--ink); }
+
+/* "Take it from your side" CTA when viewing a partner's link */
+.cta-take-it { margin-top: 18px; }
+.cta-take-it .btn { box-shadow: 4px 4px 0 var(--accent); }
+.cta-hint {
+  margin-top: 10px;
+  text-align: center;
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
 
 .restart { margin-top: 18px; }
 .footer-note {

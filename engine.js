@@ -1,22 +1,26 @@
 /* ============================================================
    engine.js — runtime for the "Two of Us" quiz trilogy.
 
-   Each quiz HTML defines a global `QUIZ` config (see relationship-
+   Each quiz HTML defines a global QUIZ config (see relationship-
    quiz.html for the canonical shape) and includes this script.
 
-   Modes:
-     - together                : both partners answer on one device
-     - solo-sender             : I answer from my POV, then share a link
-     - solo-receiver           : opened via #invite=…, partner now answers
-     - results-only            : opened via #results=…, no quiz needed
+   Flow (always solo):
+     1. Take the quiz from your point of view.
+     2. Get a personal "#me=…" link to send to your partner.
+     3. Either: paste their link into the compare box → 4-dot view.
+        Or:    they open your link, take it from their side, and
+               the page auto-merges into the 4-dot view.
 
    URL hash payloads (base64url-encoded JSON):
-     #invite=…   { v, m:"invite",   q, n1, n2, a1, a2 }
-     #results=…  { v, m:"results",  q, n1, n2, a1byA, a2byA, a1byB, a2byB }
-                 { v, m:"together", q, n1, n2, a1, a2 }
+     #me=…  { v, m:"me", q, n1, n2, a1, a2 }
+              n1 = answerer, n2 = partner.
+              a1 = answerer's view of self, a2 = answerer's view of partner.
+     #us=…  { v, m:"us", q, n1, n2, a1byA, a2byA, a1byB, a2byB }
+              A = first to take it (n1), B = second.
+              aXbyY = view of person X according to person Y.
 
-     where aX = [count for axis 0, axis 1, axis 2, axis 3]
-     in the order Q.axisOrder (see below).
+   Back-compat: legacy #invite=/#results= links from earlier builds
+   still load (they share the field shape).
    ============================================================ */
 
 (function () {
@@ -44,7 +48,6 @@
   // ─── base64url JSON encoding ─────────────────────────────────
   function b64urlEncode(obj) {
     const json = JSON.stringify(obj);
-    // Use unescape/encodeURIComponent trick for unicode safety.
     const utf8 = unescape(encodeURIComponent(json));
     let b64;
     try { b64 = btoa(utf8); } catch (e) { b64 = btoa(json); }
@@ -62,34 +65,25 @@
     try { return JSON.parse(json); } catch (e) { return null; }
   }
 
-  // ─── Quiz config validation ──────────────────────────────────
+  // ─── Quiz config ─────────────────────────────────────────────
   if (typeof window.QUIZ === 'undefined') {
     console.error('engine.js: window.QUIZ is not defined.');
     return;
   }
   const Q = window.QUIZ;
-
-  // canonical axis order: [yPos, yNeg, xPos, xNeg]
-  // (top, bottom, right, left of chart)
   Q.axisOrder = [Q.axes.y.pos, Q.axes.y.neg, Q.axes.x.pos, Q.axes.x.neg];
-
-  // map each archetype key "yKey+xKey" to its data; fallback {} just in case
   Q.archetypes = Q.archetypes || {};
 
   // ─── State ───────────────────────────────────────────────────
+  // Always solo: name1 = you (the answerer), name2 = your partner.
+  // scores[1] = your view of yourself, scores[2] = your view of partner.
   const State = {
-    mode: 'together',   // 'together' | 'solo-sender' | 'solo-receiver' | 'results-only'
-    name1: '',          // person 1 name
-    name2: '',          // person 2 name
+    name1: '',
+    name2: '',
     qIndex: 0,
-    // In together mode: scores[1] = scores P1 received, scores[2] = P2 received.
-    // In solo-sender:   scores[1] = answerer's view of P1 (themself),
-    //                   scores[2] = answerer's view of P2 (their partner).
-    //                   answererIs is 1 (sender is P1) by convention.
-    // In solo-receiver: same scores object for what THIS person is answering.
-    //                   inviteData carries the original sender's answers.
     scores: blankScores(),
-    inviteData: null,   // decoded #invite= payload while taking solo-receiver quiz
+    partnerPayload: null,   // #me= data loaded from a partner's link
+    viewingTheirs: false,   // we opened a partner's link and are previewing it
   };
 
   function blankScores() {
@@ -99,7 +93,6 @@
   }
 
   function scoreToArray(s) {
-    // [yPos, yNeg, xPos, xNeg]
     return Q.axisOrder.map((k) => s[k] || 0);
   }
   function arrayToScore(arr) {
@@ -109,35 +102,26 @@
   }
 
   // ─── Net scores → quadrant booleans / archetype ──────────────
-  function netY(scoreObj) {
-    return (scoreObj[Q.axes.y.pos] || 0) - (scoreObj[Q.axes.y.neg] || 0);
-  }
-  function netX(scoreObj) {
-    return (scoreObj[Q.axes.x.pos] || 0) - (scoreObj[Q.axes.x.neg] || 0);
-  }
+  function netY(s) { return (s[Q.axes.y.pos] || 0) - (s[Q.axes.y.neg] || 0); }
+  function netX(s) { return (s[Q.axes.x.pos] || 0) - (s[Q.axes.x.neg] || 0); }
 
   function archetypeKey(yPos, xPos) {
     return (yPos ? Q.axes.y.pos : Q.axes.y.neg) + '+' + (xPos ? Q.axes.x.pos : Q.axes.x.neg);
   }
   function archetypeFor(yPos, xPos) {
     return Q.archetypes[archetypeKey(yPos, xPos)] || {
-      emoji: '✨',
-      name: 'Unclassifiable',
-      blurb: 'Unique. Charts off the map.',
-      klass: 'unknown',
+      emoji: '✨', name: 'Unclassifiable',
+      blurb: 'Unique. Charts off the map.', klass: 'unknown',
     };
   }
   function tagFor(yPos, xPos) {
-    return (yPos ? Q.axes.y.posLabel : Q.axes.y.negLabel) +
-           ' · ' +
+    return (yPos ? Q.axes.y.posLabel : Q.axes.y.negLabel) + ' · ' +
            (xPos ? Q.axes.x.posLabel : Q.axes.x.negLabel);
   }
 
   /**
-   * Assigns each person to a quadrant based on RELATIVE net scores.
-   * Whoever is more "yPos" gets yPos=true, the other gets yPos=false.
-   * Same for x-axis. Ties broken by raw count, then by P1 by default.
-   * Returns { p1: {yPos, xPos}, p2: {yPos, xPos} }.
+   * Whoever has the higher net Y gets yPos=true; same for X.
+   * Ties broken by raw count, then by P1.
    */
   function assignQuadrants(s1, s2) {
     const yN1 = netY(s1), yN2 = netY(s2);
@@ -152,104 +136,74 @@
     else if (xN1 < xN2) p1X = false;
     else p1X = (s1[Q.axes.x.pos] || 0) >= (s2[Q.axes.x.pos] || 0);
 
-    return {
-      p1: { yPos: p1Y, xPos: p1X },
-      p2: { yPos: !p1Y, xPos: !p1X },
-    };
+    return { p1: { yPos: p1Y, xPos: p1X }, p2: { yPos: !p1Y, xPos: !p1X } };
   }
 
   // ─── Plotting ────────────────────────────────────────────────
-  // Returns {x:%, y:%} from a single-person score object.
-  // Each axis has up to 6 questions → net ranges -6..+6 → -1..+1.
-  function plotPercent(scoreObj) {
+  function plotPercent(s) {
     const margin = 12;
-    const yNet = Math.max(-1, Math.min(1, netY(scoreObj) / 6));
-    const xNet = Math.max(-1, Math.min(1, netX(scoreObj) / 6));
-    return {
-      x: 50 + xNet * (50 - margin),
-      y: 50 - yNet * (50 - margin),
-    };
-  }
-
-  // ─── Mode picker UI ──────────────────────────────────────────
-  function bindModeButtons() {
-    $$('.mode-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        $$('.mode-btn').forEach((b) => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        const mode = btn.dataset.mode;
-        State.mode = mode;
-        updateNameFieldsForMode();
-      });
-    });
-  }
-
-  function updateNameFieldsForMode() {
-    const labelP1 = $('label-name1');
-    const labelP2 = $('label-name2');
-    const inputP1 = $('name1');
-    const inputP2 = $('name2');
-    if (!labelP1 || !labelP2 || !inputP1 || !inputP2) return;
-    if (State.mode === 'solo-sender') {
-      labelP1.textContent = 'Your name';
-      labelP2.textContent = 'Their name';
-      inputP1.placeholder = 'You';
-      inputP2.placeholder = 'Your partner';
-    } else {
-      labelP1.textContent = 'Person 1';
-      labelP2.textContent = 'Person 2';
-      inputP1.placeholder = 'Their name';
-      inputP2.placeholder = 'Your name';
-    }
+    const yNet = Math.max(-1, Math.min(1, netY(s) / 6));
+    const xNet = Math.max(-1, Math.min(1, netX(s) / 6));
+    return { x: 50 + xNet * (50 - margin), y: 50 - yNet * (50 - margin) };
   }
 
   // ─── Hash routing ────────────────────────────────────────────
   function readHashPayload() {
-    const h = window.location.hash || '';
-    if (h.startsWith('#invite=')) {
-      const data = b64urlDecode(h.slice('#invite='.length));
-      if (data && data.m === 'invite' && data.q === Q.id) return { type: 'invite', data };
+    return parseHashFragment((window.location.hash || '').slice(1));
+  }
+
+  function parseHashFragment(frag) {
+    if (!frag) return null;
+    const eq = frag.indexOf('=');
+    if (eq < 0) return null;
+    const kind = frag.slice(0, eq).toLowerCase();
+    const value = frag.slice(eq + 1);
+    const data = b64urlDecode(value);
+    if (!data) return null;
+    if (data.q && data.q !== Q.id) return null;
+
+    if (kind === 'me' && data.m === 'me') return { kind: 'me', data };
+    if (kind === 'us' && data.m === 'us') return { kind: 'us', data };
+
+    // Back-compat with the old scheme.
+    if (kind === 'invite' && data.m === 'invite') {
+      return { kind: 'me', data: Object.assign({}, data, { m: 'me' }) };
     }
-    if (h.startsWith('#results=')) {
-      const data = b64urlDecode(h.slice('#results='.length));
-      if (data && (data.m === 'results' || data.m === 'together') && data.q === Q.id) {
-        return { type: 'results', data };
+    if (kind === 'results') {
+      if (data.m === 'together') {
+        return { kind: 'me', data: Object.assign({}, data, { m: 'me' }) };
+      }
+      if (data.m === 'results') {
+        return { kind: 'us', data: Object.assign({}, data, { m: 'us' }) };
       }
     }
     return null;
+  }
+
+  // Given an arbitrary string the user might paste (URL, hash, fragment), return the route.
+  function parseAnyInput(raw) {
+    if (!raw) return null;
+    let frag = String(raw).trim();
+    const idx = frag.indexOf('#');
+    if (idx >= 0) frag = frag.slice(idx + 1);
+    return parseHashFragment(frag);
   }
 
   // ─── Question rendering ──────────────────────────────────────
   function renderQuestion() {
     const q = Q.questions[State.qIndex];
     $('qText').textContent = q.text;
-
-    // Option labels depend on mode.
-    if (State.mode === 'solo-sender' || State.mode === 'solo-receiver') {
-      // The answerer is always picking "which of us is more X".
-      // From the answerer's perspective, P1 is themself, P2 is their partner.
-      // But the labels we want to show are the names so they pick a person.
-      $('opt1').textContent = State.name1;
-      $('opt2').textContent = State.name2;
-    } else {
-      $('opt1').textContent = State.name1;
-      $('opt2').textContent = State.name2;
-    }
-
+    $('opt1').textContent = State.name1;
+    $('opt2').textContent = State.name2;
     $('qCount').textContent =
       String(State.qIndex + 1).padStart(2, '0') + ' / ' +
       String(Q.questions.length).padStart(2, '0');
     $('progBar').style.width = (State.qIndex / Q.questions.length * 100) + '%';
 
-    // POV note (solo only)
     const pov = $('qPov');
     if (pov) {
-      if (State.mode === 'solo-sender' || State.mode === 'solo-receiver') {
-        pov.textContent = 'From your honest point of view.';
-        pov.style.display = '';
-      } else {
-        pov.style.display = 'none';
-      }
+      pov.textContent = 'From your honest point of view.';
+      pov.style.display = '';
     }
   }
 
@@ -269,24 +223,23 @@
 
   // ─── Start / restart ─────────────────────────────────────────
   function startQuiz() {
-    const n1 = $('name1').value.trim();
-    const n2 = $('name2').value.trim();
-
-    if (State.mode === 'solo-sender') {
-      State.name1 = n1 || 'You';     // sender = P1 by convention
-      State.name2 = n2 || 'Partner';
-    } else {
-      State.name1 = n1 || 'Person 1';
-      State.name2 = n2 || 'Person 2';
-    }
-
+    const n1 = ($('name1') ? $('name1').value : '').trim();
+    const n2 = ($('name2') ? $('name2').value : '').trim();
+    State.name1 = n1 || 'You';
+    State.name2 = n2 || 'Partner';
     State.qIndex = 0;
     State.scores = blankScores();
     renderQuestion();
     show('screen-question');
   }
 
-  function startReceiverQuiz() {
+  // Called when the user is on a partner's #me= preview and clicks "Take it from your side".
+  function startQuizFromTheirLink() {
+    const p = State.partnerPayload;
+    if (!p) { startQuiz(); return; }
+    // In their payload, n1 = them, n2 = us.
+    State.name1 = p.n2 || 'You';
+    State.name2 = p.n1 || 'Partner';
     State.qIndex = 0;
     State.scores = blankScores();
     renderQuestion();
@@ -294,106 +247,100 @@
   }
 
   function restart() {
-    // If the intro was overwritten (receiver flow) or we arrived via #results=,
-    // the cleanest reset is a reload to the natural intro.
-    const introHasMode = !!document.querySelector('.mode-btn');
-    if (!introHasMode || State.mode === 'results-only' || State.mode === 'solo-receiver') {
-      window.location.href = window.location.pathname + window.location.search;
-      return;
-    }
-    if (window.location.hash) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-    State.mode = 'together';
-    $$('.mode-btn').forEach((b) => b.classList.remove('selected'));
-    const tBtn = document.querySelector('.mode-btn[data-mode="together"]');
-    if (tBtn) tBtn.classList.add('selected');
-    updateNameFieldsForMode();
-    if (State.name1 && State.name1 !== 'Person 1' && State.name1 !== 'You') $('name1').value = State.name1;
-    if (State.name2 && State.name2 !== 'Person 2' && State.name2 !== 'Partner') $('name2').value = State.name2;
-    show('screen-intro');
+    window.location.href = window.location.pathname + window.location.search;
   }
 
-  // ─── Finish: dispatches based on mode ────────────────────────
+  // ─── Finish ──────────────────────────────────────────────────
   function finishQuiz() {
-    if (State.mode === 'solo-sender') {
-      renderSenderShareScreen();
-    } else if (State.mode === 'solo-receiver') {
-      renderComparisonResults();
+    if (State.partnerPayload) {
+      // We took the quiz after opening a partner's link → auto-combine.
+      const us = combineMeAndMe(State.partnerPayload, mySoloPayload());
+      const url = '#us=' + b64urlEncode(us);
+      history.replaceState(null, '', window.location.pathname + window.location.search + url);
+      renderComparisonResults({ fromPayload: us });
     } else {
-      renderTogetherResults();
+      renderPersonalResults({ fromState: true });
     }
   }
 
-  // ─── Sender's "your view" + share invite screen ──────────────
-  function renderSenderShareScreen() {
-    // Build payload. Sender is P1 (a1=self), partner is P2 (a2=partner).
-    const payload = {
-      v: VERSION,
-      m: 'invite',
-      q: Q.id,
-      n1: State.name1,
-      n2: State.name2,
+  function mySoloPayload() {
+    return {
+      v: VERSION, m: 'me', q: Q.id,
+      n1: State.name1, n2: State.name2,
       a1: scoreToArray(State.scores[1]),
       a2: scoreToArray(State.scores[2]),
     };
-    const url = location.origin + location.pathname + '#invite=' + b64urlEncode(payload);
-
-    // Quick "your view" of who you are vs who they are.
-    const assigned = assignQuadrants(State.scores[1], State.scores[2]);
-    const a1 = archetypeFor(assigned.p1.yPos, assigned.p1.xPos);
-    const a2 = archetypeFor(assigned.p2.yPos, assigned.p2.xPos);
-
-    const senderHtml = `
-      <div class="eyebrow">Your view recorded</div>
-      <h2 class="results-title">Now send it to <em>${escapeHtml(State.name2)}</em>.</h2>
-
-      <div class="your-view-card">
-        <h3>Your honest take</h3>
-        <p>Here's how you see things from your side. Don't show ${escapeHtml(State.name2)} this part — let them answer freely first.</p>
-        <div class="mini-pair">
-          <div class="row">
-            <span class="swatch p1"></span>
-            You see <strong>${escapeHtml(State.name1)}</strong> as <strong>${escapeHtml(a1.name)}</strong>
-          </div>
-          <div class="row">
-            <span class="swatch p2"></span>
-            You see <strong>${escapeHtml(State.name2)}</strong> as <strong>${escapeHtml(a2.name)}</strong>
-          </div>
-        </div>
-      </div>
-
-      ${shareBlockHtml('Send this link to ' + State.name2)}
-      <button class="btn secondary" id="restartBtn2">Take it again</button>
-      <p class="footer-note">${Q.copy && Q.copy.footerNote ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
-    `;
-
-    const container = $('resultsContainer');
-    container.innerHTML = senderHtml;
-    show('screen-results');
-
-    mountShareBlock(url);
-    $('restartBtn2').addEventListener('click', restart);
   }
 
-  // ─── Together-mode results (2 dots, 2 verdict cards) ─────────
-  function renderTogetherResults(opts) {
-    opts = opts || {};
-    const s1 = opts.s1 || State.scores[1];
-    const s2 = opts.s2 || State.scores[2];
-    const n1 = opts.n1 || State.name1;
-    const n2 = opts.n2 || State.name2;
+  /**
+   * Merge two #me= payloads into one #us= payload.
+   * meA: the first answerer's data ({n1, n2, a1, a2}).
+   * meB: the second answerer's data — note their n1/n2 are mirrored from meA.
+   */
+  function combineMeAndMe(meA, meB) {
+    return {
+      v: VERSION, m: 'us', q: Q.id,
+      n1: meA.n1, n2: meA.n2,
+      a1byA: meA.a1, a2byA: meA.a2,
+      a1byB: meB.a2,    // B's view of A = meB's "view of partner"
+      a2byB: meB.a1,    // B's view of B = meB's "view of self"
+    };
+  }
+
+  // ─── Personal results (2 dots, your view) ────────────────────
+  function renderPersonalResults(opts) {
+    let n1, n2, s1, s2, mine;
+    if (opts.fromState) {
+      n1 = State.name1; n2 = State.name2;
+      s1 = State.scores[1]; s2 = State.scores[2];
+      mine = true;
+    } else {
+      const d = opts.fromPayload;
+      n1 = d.n1; n2 = d.n2;
+      s1 = arrayToScore(d.a1);
+      s2 = arrayToScore(d.a2);
+      mine = false;
+      State.viewingTheirs = true;
+    }
 
     const assigned = assignQuadrants(s1, s2);
     const a1 = archetypeFor(assigned.p1.yPos, assigned.p1.xPos);
     const a2 = archetypeFor(assigned.p2.yPos, assigned.p2.xPos);
-
     const p1Pos = plotPercent(s1);
     const p2Pos = plotPercent(s2);
 
+    const eyebrow = mine ? 'Your view recorded' : `${escapeHtml(n1)} took the quiz`;
+    const titleHtml = mine
+      ? "Here's your <em>read</em>."
+      : `<em>${escapeHtml(n1)}</em>'s side of it.`;
+
+    // "me" payload for the link to share / combine.
+    const mePayload = mine ? mySoloPayload() : {
+      v: VERSION, m: 'me', q: Q.id, n1, n2,
+      a1: scoreToArray(s1), a2: scoreToArray(s2),
+    };
+    const meUrl = location.origin + location.pathname + '#me=' + b64urlEncode(mePayload);
+
+    let actionsHtml;
+    if (mine) {
+      actionsHtml = `
+        ${shareBlockHtml('Send your link to ' + n2)}
+        ${compareBlockHtml('Got their link? Paste it to compare.')}
+        <button class="btn secondary" id="restartBtn2">Take it again</button>
+      `;
+    } else {
+      actionsHtml = `
+        <div class="cta-take-it">
+          <button class="btn" id="takeItBtn">Take it from your side →</button>
+          <p class="cta-hint">Answer the same twenty-four questions honestly. We'll merge into a 4-dot comparison automatically.</p>
+        </div>
+        ${compareBlockHtml('Already took it? Paste your link instead.')}
+      `;
+    }
+
     const html = `
-      <div class="eyebrow">The verdict is in</div>
-      <h2 class="results-title">${Q.copy && Q.copy.resultsHead ? Q.copy.resultsHead : "Here's the <em>truth</em>."}</h2>
+      <div class="eyebrow">${eyebrow}</div>
+      <h2 class="results-title">${titleHtml}</h2>
 
       ${chartHtml([
         { id: 'd1', cls: 'p1', label: n1, x: p1Pos.x, y: p1Pos.y },
@@ -417,62 +364,43 @@
         ${scoresLine(s2)}
       </div>
 
-      ${shareBlockHtml('Share these results')}
-      <button class="btn secondary" id="restartBtn2">Take it again</button>
-      <p class="footer-note">${Q.copy && Q.copy.footerNote ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
+      ${actionsHtml}
+
+      <p class="footer-note">${(Q.copy && Q.copy.footerNote) ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
     `;
 
-    const container = $('resultsContainer');
-    container.innerHTML = html;
+    $('resultsContainer').innerHTML = html;
     show('screen-results');
 
-    // Animate dots into place after layout.
     requestAnimationFrame(() => positionDot('d1', p1Pos));
     requestAnimationFrame(() => positionDot('d2', p2Pos));
 
-    // Build & wire share link.
-    const payload = {
-      v: VERSION, m: 'together', q: Q.id,
-      n1: n1, n2: n2,
-      a1: scoreToArray(s1), a2: scoreToArray(s2),
-    };
-    const url = location.origin + location.pathname + '#results=' + b64urlEncode(payload);
-    mountShareBlock(url);
-    $('restartBtn2').addEventListener('click', restart);
+    if (mine) {
+      mountShareBlock(meUrl);
+    } else {
+      const takeBtn = $('takeItBtn');
+      if (takeBtn) takeBtn.addEventListener('click', startQuizFromTheirLink);
+    }
+    mountCompareBlock(mePayload);
+
+    const restartBtn = $('restartBtn2');
+    if (restartBtn) restartBtn.addEventListener('click', restart);
   }
 
   // ─── Comparison results (4 dots) ────────────────────────────
   function renderComparisonResults(opts) {
-    opts = opts || {};
+    const d = opts.fromPayload;
+    const n1 = d.n1, n2 = d.n2;
+    const sAA = arrayToScore(d.a1byA);
+    const sBA = arrayToScore(d.a2byA);
+    const sAB = arrayToScore(d.a1byB);
+    const sBB = arrayToScore(d.a2byB);
 
-    let n1, n2, sAA, sBA, sAB, sBB;
-    // sXY = score for person X as seen BY person Y (where A=sender, B=receiver).
-    if (opts.fromPayload) {
-      const d = opts.fromPayload;
-      n1 = d.n1; n2 = d.n2;
-      sAA = arrayToScore(d.a1byA); sBA = arrayToScore(d.a2byA);
-      sAB = arrayToScore(d.a1byB); sBB = arrayToScore(d.a2byB);
-    } else {
-      // We're the receiver finishing the quiz.
-      // inviteData: a1 = sender's view of self, a2 = sender's view of partner (us).
-      // State.scores: 1 = receiver's view of P1 (sender), 2 = receiver's view of P2 (self).
-      const inv = State.inviteData;
-      n1 = inv.n1; n2 = inv.n2;
-      sAA = arrayToScore(inv.a1);            // sender (n1) by sender
-      sBA = arrayToScore(inv.a2);            // partner (n2) by sender
-      sAB = State.scores[1];                 // sender (n1) by receiver
-      sBB = State.scores[2];                 // partner (n2) by receiver
-    }
-
-    // Plot all four dots.
     const pAA = plotPercent(sAA);
     const pBA = plotPercent(sBA);
     const pAB = plotPercent(sAB);
     const pBB = plotPercent(sBB);
 
-    // Archetypes:
-    //   - A's view: who's where, A vs B as seen by A
-    //   - B's view: who's where, A vs B as seen by B
     const viewA = assignQuadrants(sAA, sBA);
     const viewB = assignQuadrants(sAB, sBB);
     const archA_byA = archetypeFor(viewA.p1.yPos, viewA.p1.xPos);
@@ -481,19 +409,26 @@
     const archB_byB = archetypeFor(viewB.p2.yPos, viewB.p2.xPos);
 
     const dots = [
-      { id: 'd-aa', cls: 'p1',         label: n1,           x: pAA.x, y: pAA.y },
-      { id: 'd-ba', cls: 'p2',         label: n2,           x: pBA.x, y: pBA.y },
-      { id: 'd-ab', cls: 'p1 hollow',  label: n1,           x: pAB.x, y: pAB.y, hollow: true },
-      { id: 'd-bb', cls: 'p2 hollow',  label: n2,           x: pBB.x, y: pBB.y, hollow: true },
+      { id: 'd-aa', cls: 'p1',         label: n1, x: pAA.x, y: pAA.y },
+      { id: 'd-ba', cls: 'p2',         label: n2, x: pBA.x, y: pBA.y },
+      { id: 'd-ab', cls: 'p1 hollow',  label: n1, x: pAB.x, y: pAB.y },
+      { id: 'd-bb', cls: 'p2 hollow',  label: n2, x: pBB.x, y: pBB.y },
     ];
     const connectors = [
       { from: pAA, to: pAB },
       { from: pBA, to: pBB },
     ];
-
     const agreement = buildAgreementBullets(
       n1, n2, viewA, viewB, archA_byA, archB_byA, archA_byB, archB_byB
     );
+
+    const usPayload = {
+      v: VERSION, m: 'us', q: Q.id,
+      n1, n2,
+      a1byA: d.a1byA, a2byA: d.a2byA,
+      a1byB: d.a1byB, a2byB: d.a2byB,
+    };
+    const url = location.origin + location.pathname + '#us=' + b64urlEncode(usPayload);
 
     const html = `
       <div class="eyebrow">Both views in</div>
@@ -513,18 +448,16 @@
         <ul>${agreement.map((b) => '<li>' + b + '</li>').join('')}</ul>
       </div>
 
-      ${shareBlockHtml('Share these results')}
+      ${shareBlockHtml('Share this comparison')}
       <button class="btn secondary" id="restartBtn2">Take it again</button>
-      <p class="footer-note">${Q.copy && Q.copy.footerNote ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
+      <p class="footer-note">${(Q.copy && Q.copy.footerNote) ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
     `;
 
-    const container = $('resultsContainer');
-    container.innerHTML = html;
+    $('resultsContainer').innerHTML = html;
     show('screen-results');
 
     requestAnimationFrame(() => {
       dots.forEach((d) => positionDot(d.id, { x: d.x, y: d.y }));
-      // Defer connector draw until the chart has real dimensions.
       const tryDraw = () => {
         const chart = $('chart');
         if (chart && chart.getBoundingClientRect().width > 0) {
@@ -535,23 +468,13 @@
       };
       tryDraw();
     });
-
-    // Watch resize, redraw connectors.
     window.addEventListener('resize', () => drawConnectors(connectors));
 
-    // Build the shareable "results" payload (4 dots → permanent link).
-    const payload = {
-      v: VERSION, m: 'results', q: Q.id,
-      n1, n2,
-      a1byA: scoreToArray(sAA), a2byA: scoreToArray(sBA),
-      a1byB: scoreToArray(sAB), a2byB: scoreToArray(sBB),
-    };
-    const url = location.origin + location.pathname + '#results=' + b64urlEncode(payload);
     mountShareBlock(url);
     $('restartBtn2').addEventListener('click', restart);
   }
 
-  // ─── Helpers: chart HTML, dot positioning, connectors ────────
+  // ─── Chart HTML, dot positioning, connectors ─────────────────
   function chartHtml(dots, connectors) {
     const yTop = Q.axes.y.posLabel;
     const yBot = Q.axes.y.negLabel;
@@ -588,20 +511,13 @@
   function positionDot(id, pos) {
     const dot = $(id);
     const lbl = $(id + '-label');
-    if (dot) {
-      dot.style.left = pos.x + '%';
-      dot.style.top = pos.y + '%';
-    }
-    if (lbl) {
-      lbl.style.left = pos.x + '%';
-      lbl.style.top = pos.y + '%';
-    }
+    if (dot) { dot.style.left = pos.x + '%'; dot.style.top = pos.y + '%'; }
+    if (lbl) { lbl.style.left = pos.x + '%'; lbl.style.top = pos.y + '%'; }
   }
 
   function drawConnectors(pairs) {
     const chart = $('chart');
     if (!chart) return;
-    // Remove old connectors.
     chart.querySelectorAll('.connector').forEach((el) => el.remove());
 
     const rect = chart.getBoundingClientRect();
@@ -627,9 +543,6 @@
   // ─── Agreement bullets ───────────────────────────────────────
   function buildAgreementBullets(n1, n2, viewA, viewB, aA_byA, aB_byA, aA_byB, aB_byB) {
     const bullets = [];
-
-    // 1. Y-axis agreement on each person.
-    // viewA.p1.yPos: A thinks P1 is more yPos. viewB.p1.yPos: B thinks so.
     const yPosLabel = Q.axes.y.posLabel;
     const yNegLabel = Q.axes.y.negLabel;
     const xPosLabel = Q.axes.x.posLabel;
@@ -663,7 +576,6 @@
       );
     }
 
-    // 2. Archetype mismatches per person.
     if (aA_byA.name !== aA_byB.name) {
       bullets.push(
         `<strong>${escapeHtml(n1)}</strong> sees themself as <strong>${escapeHtml(aA_byA.name)}</strong>, ` +
@@ -691,7 +603,6 @@
     return bullets;
   }
 
-  // ─── Score line under verdict ────────────────────────────────
   function scoresLine(s) {
     const yPos = Q.axes.y.posLabel[0];
     const yNeg = Q.axes.y.negLabel[0];
@@ -758,92 +669,98 @@
     if (cb) cb();
   }
 
-  function stripTags(s) {
-    return String(s || '').replace(/<[^>]*>/g, '');
+  // ─── Compare block (paste-and-merge) ─────────────────────────
+  function compareBlockHtml(label) {
+    return `
+      <div class="compare-block">
+        <div class="compare-label">${escapeHtml(label)}</div>
+        <div class="share-row">
+          <input type="url" class="share-url" id="compareInput" placeholder="paste their link here" autocomplete="off">
+          <button class="share-copy compare-go" id="compareGo" type="button">Compare</button>
+        </div>
+        <div class="compare-msg" id="compareMsg"></div>
+      </div>
+    `;
   }
 
-  // ─── Receiver intro screen (#invite=…) ───────────────────────
-  function showReceiverIntro(invite) {
-    State.mode = 'solo-receiver';
-    State.inviteData = invite;
-    State.name1 = invite.n1;     // sender
-    State.name2 = invite.n2;     // receiver (you)
+  function mountCompareBlock(myExistingPayload) {
+    const input = $('compareInput');
+    const btn = $('compareGo');
+    const msg = $('compareMsg');
+    if (!input || !btn) return;
 
-    const el = $('screen-intro');
-    el.innerHTML = `
-      <div class="eyebrow">An honest comparison</div>
-      <h1 class="title"><em>${escapeHtml(invite.n1)}</em> wants your side.</h1>
-      <p class="lede">${escapeHtml(invite.n1)} took the ${stripTags(Q.title)} quiz from their point of view, and now wants yours. Answer the same twenty-four questions honestly — at the end you'll see four dots: how each of you sees both of you.</p>
-      <button class="btn" id="receiverStartBtn">Begin →</button>
-    `;
-    show('screen-intro');
-    $('receiverStartBtn').addEventListener('click', startReceiverQuiz);
+    function setMsg(text, isError) {
+      if (!msg) return;
+      msg.textContent = text || '';
+      msg.classList.toggle('error', !!isError);
+    }
+
+    function go() {
+      const raw = input.value;
+      if (!raw || !raw.trim()) { setMsg("Paste a link first.", true); return; }
+      const route = parseAnyInput(raw);
+      if (!route) {
+        setMsg("That doesn't look like a quiz link from this site.", true);
+        return;
+      }
+
+      if (route.kind === 'us') {
+        // It's already a comparison link → just navigate to it.
+        location.hash = '#us=' + b64urlEncode(route.data);
+        return;
+      }
+
+      // route.kind === 'me' — combine with what we have on this page.
+      if (!myExistingPayload) {
+        location.hash = '#me=' + b64urlEncode(route.data);
+        return;
+      }
+      const us = combineMeAndMe(myExistingPayload, route.data);
+      location.hash = '#us=' + b64urlEncode(us);
+    }
+
+    btn.addEventListener('click', go);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
   }
 
   // ─── Boot ────────────────────────────────────────────────────
   function boot() {
-    // Inject quiz title / lede / eyebrow / footer copy if placeholders exist.
-    if ($('introEyebrow') && Q.copy && Q.copy.eyebrow) {
-      $('introEyebrow').textContent = Q.copy.eyebrow;
-    }
-    if ($('introTitle') && Q.title) {
-      $('introTitle').innerHTML = Q.title;
-    }
-    if ($('introLede') && Q.intro) {
-      $('introLede').textContent = Q.intro;
-    }
+    if ($('introEyebrow') && Q.copy && Q.copy.eyebrow) $('introEyebrow').textContent = Q.copy.eyebrow;
+    if ($('introTitle') && Q.title) $('introTitle').innerHTML = Q.title;
+    if ($('introLede') && Q.intro) $('introLede').textContent = Q.intro;
 
-    // Listen for hash route.
+    // Hashchange (e.g. compare-block writes #us=… to navigate) → reload to re-route.
+    window.addEventListener('hashchange', () => { window.location.reload(); });
+
     const route = readHashPayload();
-    if (route && route.type === 'invite') {
-      showReceiverIntro(route.data);
+    if (route && route.kind === 'us') {
+      renderComparisonResults({ fromPayload: route.data });
       return;
     }
-    if (route && route.type === 'results') {
-      const d = route.data;
-      if (d.m === 'together') {
-        State.mode = 'results-only';
-        State.name1 = d.n1; State.name2 = d.n2;
-        renderTogetherResults({
-          n1: d.n1, n2: d.n2,
-          s1: arrayToScore(d.a1),
-          s2: arrayToScore(d.a2),
-        });
-      } else if (d.m === 'results') {
-        State.mode = 'results-only';
-        renderComparisonResults({ fromPayload: d });
-      }
+    if (route && route.kind === 'me') {
+      State.partnerPayload = route.data;
+      renderPersonalResults({ fromPayload: route.data });
       return;
     }
 
-    // Normal intro flow.
-    bindModeButtons();
-    updateNameFieldsForMode();
-
-    // Wire begin button (lives in HTML).
     const beginBtn = $('beginBtn');
     if (beginBtn) beginBtn.addEventListener('click', startQuiz);
 
-    // Wire option buttons + tie.
-    $('opt1').addEventListener('click', () => answer(1));
-    $('opt2').addEventListener('click', () => answer(2));
+    const opt1 = $('opt1');
+    const opt2 = $('opt2');
+    if (opt1) opt1.addEventListener('click', () => answer(1));
+    if (opt2) opt2.addEventListener('click', () => answer(2));
     const tie = $('tieBtn');
     if (tie) tie.addEventListener('click', () => answer(0));
 
     show('screen-intro');
   }
 
-  // Expose limited API for any inline handlers (and for debugging).
-  window.QuizEngine = {
-    answer: answer,
-    startQuiz: startQuiz,
-    restart: restart,
-  };
-
-  // DOM ready.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
     boot();
   }
+
+  window.QuizEngine = { answer, startQuiz };
 })();
