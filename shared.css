@@ -510,9 +510,56 @@ h1.title .accent {
 .your-view-card .mini-pair .row strong { font-family: 'Fraunces', serif; font-style: italic; font-weight: 700; }
 
 /* "share / copy link" UI */
+.share-block { margin-top: 18px; }
+.share-label {
+  display: block;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
 .share-row {
-  display: flex; flex-direction: column; gap: 10px;
-  margin-top: 14px;
+  display: flex; gap: 10px;
+  align-items: stretch;
+}
+.share-url {
+  flex: 1; min-width: 0;
+  background: white;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  outline: none;
+  text-overflow: ellipsis;
+  -webkit-user-select: all;
+  user-select: all;
+}
+.share-url:focus { box-shadow: 3px 3px 0 var(--accent); }
+.share-copy {
+  background: var(--ink); color: var(--bg);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 0 18px;
+  min-height: 48px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--accent);
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: transform .15s ease, box-shadow .15s ease, background .2s ease;
+}
+.share-copy:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--accent);
+}
+.share-copy.copied {
+  background: var(--accent);
+  color: white;
 }
 .share-confirm {
   text-align: center;
@@ -521,6 +568,7 @@ h1.title .accent {
   color: var(--accent);
   font-size: 14px;
   height: 18px;
+  margin-top: 8px;
   opacity: 0;
   transition: opacity .3s ease;
 }

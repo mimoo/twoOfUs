@@ -363,9 +363,8 @@
         </div>
       </div>
 
-      <button class="btn" id="shareBtn">Copy link to send →</button>
+      ${shareBlockHtml('Send this link to ' + State.name2)}
       <button class="btn secondary" id="restartBtn2">Take it again</button>
-      <div class="share-confirm" id="shareConfirm">Copied — paste it to ${escapeHtml(State.name2)}.</div>
       <p class="footer-note">${Q.copy && Q.copy.footerNote ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
     `;
 
@@ -373,7 +372,7 @@
     container.innerHTML = senderHtml;
     show('screen-results');
 
-    $('shareBtn').addEventListener('click', () => doShare(url, `${State.name1} took the ${stripTags(Q.title)} quiz and wants to compare with you.`));
+    mountShareBlock(url);
     $('restartBtn2').addEventListener('click', restart);
   }
 
@@ -418,9 +417,8 @@
         ${scoresLine(s2)}
       </div>
 
-      <button class="btn" id="shareBtn">Share these results →</button>
+      ${shareBlockHtml('Share these results')}
       <button class="btn secondary" id="restartBtn2">Take it again</button>
-      <div class="share-confirm" id="shareConfirm">Link copied.</div>
       <p class="footer-note">${Q.copy && Q.copy.footerNote ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
     `;
 
@@ -439,7 +437,7 @@
       a1: scoreToArray(s1), a2: scoreToArray(s2),
     };
     const url = location.origin + location.pathname + '#results=' + b64urlEncode(payload);
-    $('shareBtn').addEventListener('click', () => doShare(url, `${n1} & ${n2} — ${stripTags(Q.title)}`));
+    mountShareBlock(url);
     $('restartBtn2').addEventListener('click', restart);
   }
 
@@ -515,9 +513,8 @@
         <ul>${agreement.map((b) => '<li>' + b + '</li>').join('')}</ul>
       </div>
 
-      <button class="btn" id="shareBtn">Share these results →</button>
+      ${shareBlockHtml('Share these results')}
       <button class="btn secondary" id="restartBtn2">Take it again</button>
-      <div class="share-confirm" id="shareConfirm">Link copied.</div>
       <p class="footer-note">${Q.copy && Q.copy.footerNote ? Q.copy.footerNote : 'Diagnosis is non-binding. Probably.'}</p>
     `;
 
@@ -550,7 +547,7 @@
       a1byB: scoreToArray(sAB), a2byB: scoreToArray(sBB),
     };
     const url = location.origin + location.pathname + '#results=' + b64urlEncode(payload);
-    $('shareBtn').addEventListener('click', () => doShare(url, `${n1} & ${n2} — ${stripTags(Q.title)}`));
+    mountShareBlock(url);
     $('restartBtn2').addEventListener('click', restart);
   }
 
@@ -707,30 +704,45 @@
   }
 
   // ─── Sharing ─────────────────────────────────────────────────
-  function doShare(url, title) {
-    const text = title;
-    if (navigator.share) {
-      navigator.share({ title: title, text: text, url: url }).catch(() => {
-        // user cancelled — fall back to copy
-        copyToClipboard(url);
-      });
-    } else {
-      copyToClipboard(url);
-    }
+  function shareBlockHtml(label) {
+    return `
+      <div class="share-block">
+        <div class="share-label">${escapeHtml(label)}</div>
+        <div class="share-row">
+          <input type="text" class="share-url" id="shareUrl" readonly>
+          <button class="share-copy" id="shareCopy" type="button">Copy</button>
+        </div>
+      </div>
+    `;
   }
 
-  function copyToClipboard(url) {
-    const showConfirm = () => {
-      const c = $('shareConfirm');
-      if (c) {
-        c.classList.add('show');
-        setTimeout(() => c.classList.remove('show'), 2400);
-      }
-    };
+  function mountShareBlock(url) {
+    const input = $('shareUrl');
+    const btn = $('shareCopy');
+    if (!input || !btn) return;
+    input.value = url;
+    const selectAll = () => { try { input.select(); input.setSelectionRange(0, url.length); } catch (e) {} };
+    input.addEventListener('focus', selectAll);
+    input.addEventListener('click', selectAll);
+    btn.addEventListener('click', () => {
+      copyToClipboard(url, () => {
+        btn.classList.add('copied');
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = original;
+        }, 1800);
+      });
+    });
+  }
+
+  function copyToClipboard(url, onDone) {
+    const done = onDone || (() => {});
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(showConfirm, () => fallbackCopy(url, showConfirm));
+      navigator.clipboard.writeText(url).then(done, () => fallbackCopy(url, done));
     } else {
-      fallbackCopy(url, showConfirm);
+      fallbackCopy(url, done);
     }
   }
 

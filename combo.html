@@ -86,20 +86,12 @@
     color: var(--ink-soft); max-width: 46ch;
   }
 
-  /* share button row */
-  .combo-share {
-    display: flex; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 32px;
-  }
-  .combo-share .btn {
-    display: inline-block; width: auto; flex: 0 0 auto;
+  /* share row + take-more-quizzes button */
+  .combo-share { margin-bottom: 32px; }
+  .combo-share .share-block { margin-top: 0; }
+  .combo-share .btn.secondary {
+    display: inline-block; width: auto;
     padding: 12px 22px; font-size: 13px;
-  }
-  .combo-share .btn.secondary { margin-top: 0; }
-  .combo-share .share-confirm {
-    align-self: center;
-    height: auto;
-    margin: 0;
   }
 
   /* quiz block grid: stacked on mobile, three across on desktop */
@@ -291,9 +283,14 @@
   </header>
 
   <div class="combo-share" id="comboShare" style="display:none;">
-    <button class="btn" id="copyComboBtn">Copy combo link →</button>
-    <a class="btn secondary" href="index.html" style="text-decoration:none;">Take more quizzes</a>
-    <div class="share-confirm" id="comboShareConfirm">Link copied.</div>
+    <div class="share-block">
+      <div class="share-label">Share this combo link</div>
+      <div class="share-row">
+        <input type="text" class="share-url" id="comboShareUrl" readonly>
+        <button class="share-copy" id="copyComboBtn" type="button">Copy</button>
+      </div>
+    </div>
+    <a class="btn secondary" href="index.html" style="text-decoration:none; margin-top:14px;">Take more quizzes</a>
   </div>
 
   <div class="combo-grid" id="comboGrid"></div>
@@ -628,21 +625,23 @@
     const url = location.origin + location.pathname + '#trio=' + b64urlEncode(payload);
     const row = document.getElementById('comboShare');
     row.style.display = '';
-    document.getElementById('copyComboBtn').addEventListener('click', () => {
-      const doShare = (u) => {
-        if (navigator.share) {
-          navigator.share({ title: 'Two of Us — combo', url: u }).catch(() => copyToClipboard(u, showCopied));
-        } else {
-          copyToClipboard(u, showCopied);
-        }
-      };
-      doShare(url);
+    const input = document.getElementById('comboShareUrl');
+    const btn = document.getElementById('copyComboBtn');
+    input.value = url;
+    const selectAll = () => { try { input.select(); input.setSelectionRange(0, url.length); } catch (e) {} };
+    input.addEventListener('focus', selectAll);
+    input.addEventListener('click', selectAll);
+    btn.addEventListener('click', () => {
+      copyToClipboard(url, () => {
+        btn.classList.add('copied');
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = original;
+        }, 1800);
+      });
     });
-    function showCopied() {
-      const c = document.getElementById('comboShareConfirm');
-      c.classList.add('show');
-      setTimeout(() => c.classList.remove('show'), 2400);
-    }
   }
 
   // ─── Boot ──────────────────────────────────────────────────────────────
