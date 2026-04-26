@@ -28,15 +28,14 @@ interface Props {
  * Mirrors the geometry from engine.js → drawConnectors().
  */
 export default function QuadrantChart({ quiz, dots, connectors = [] }: Props) {
-  const chartRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function draw() {
-      const chart = chartRef.current;
-      if (!chart) return;
-      // Remove old connectors.
-      chart.querySelectorAll(".connector").forEach((el) => el.remove());
-      const rect = chart.getBoundingClientRect();
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      overlay.querySelectorAll(".connector").forEach((el) => el.remove());
+      const rect = overlay.getBoundingClientRect();
       const w = rect.width;
       const h = rect.height;
       if (!w || !h) return;
@@ -55,11 +54,10 @@ export default function QuadrantChart({ quiz, dots, connectors = [] }: Props) {
         conn.style.top = y1 + "px";
         conn.style.width = len + "px";
         conn.style.transform = "rotate(" + angle + "deg)";
-        chart.appendChild(conn);
+        overlay.appendChild(conn);
       }
     }
 
-    // Defer to next frame so layout is settled.
     const raf = requestAnimationFrame(draw);
     window.addEventListener("resize", draw);
     return () => {
@@ -75,35 +73,39 @@ export default function QuadrantChart({ quiz, dots, connectors = [] }: Props) {
       <div className="chart-axis-top">{quiz.axes.y.posLabel}</div>
       <div className="chart-row">
         <div className="chart-axis-side left">{quiz.axes.x.negLabel}</div>
-        <div className="chart-grid" ref={chartRef}>
-          <div className="quadrant tl">
-            <span className="qname">{ql.tl}</span>
-          </div>
-          <div className="quadrant tr">
-            <span className="qname">{ql.tr}</span>
-          </div>
-          <div className="quadrant bl">
-            <span className="qname">{ql.bl}</span>
-          </div>
-          <div className="quadrant br">
-            <span className="qname">{ql.br}</span>
-          </div>
-          <div className="grid-line h" />
-          <div className="grid-line v" />
-          {dots.map((d) => (
-            <div key={d.id}>
-              <div
-                className={`dot ${d.cls}`}
-                style={{ left: `${d.pos.x}%`, top: `${d.pos.y}%` }}
-              />
-              <div
-                className={`dot-label ${d.cls}`}
-                style={{ left: `${d.pos.x}%`, top: `${d.pos.y}%` }}
-              >
-                {d.label}
-              </div>
+        <div className="chart-positioned">
+          <div className="chart-grid">
+            <div className="quadrant tl">
+              <span className="qname">{ql.tl}</span>
             </div>
-          ))}
+            <div className="quadrant tr">
+              <span className="qname">{ql.tr}</span>
+            </div>
+            <div className="quadrant bl">
+              <span className="qname">{ql.bl}</span>
+            </div>
+            <div className="quadrant br">
+              <span className="qname">{ql.br}</span>
+            </div>
+            <div className="grid-line h" />
+            <div className="grid-line v" />
+          </div>
+          <div className="chart-overlay" ref={overlayRef}>
+            {dots.map((d) => (
+              <div key={d.id}>
+                <div
+                  className={`dot ${d.cls}`}
+                  style={{ left: `${d.pos.x}%`, top: `${d.pos.y}%` }}
+                />
+                <div
+                  className={`dot-label ${d.cls}`}
+                  style={{ left: `${d.pos.x}%`, top: `${d.pos.y}%` }}
+                >
+                  {d.label}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="chart-axis-side right">{quiz.axes.x.posLabel}</div>
       </div>

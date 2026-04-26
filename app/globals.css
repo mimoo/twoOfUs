@@ -267,7 +267,8 @@ body {
 }
 
 .stage {
-  padding: 28px 22px 36px;
+  position: relative;
+  padding: 64px 22px 36px;
   max-width: 540px;
   margin: 0 auto;
   width: 100%;
@@ -275,6 +276,32 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.quiz-nav {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  z-index: 10;
+}
+.back-link {
+  display: inline-block;
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+  padding: 8px 14px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.back-link:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: white;
 }
 
 .screen { animation: fadeIn .35s ease; }
@@ -465,6 +492,9 @@ h1.title .accent {
   color: var(--ink);
 }
 .chart-axis-side.left { transform: rotate(180deg); }
+.chart-positioned {
+  position: relative;
+}
 .chart-grid {
   position: relative;
   aspect-ratio: 1 / 1;
@@ -475,6 +505,14 @@ h1.title .accent {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 4px 4px 0 var(--ink);
+}
+/* Dots, labels, and connectors live in this overlay so labels
+   can extend past the chart border without being clipped. */
+.chart-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
 }
 .quadrant {
   display: flex; align-items: center; justify-content: center;
@@ -530,6 +568,7 @@ h1.title .accent {
 .dot-label {
   position: absolute;
   z-index: 6;
+  /* Filled labels (A's view) sit ABOVE the dot. */
   transform: translate(-50%, calc(-100% - 14px));
   font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
   font-size: 10px; font-weight: 700;
@@ -539,6 +578,9 @@ h1.title .accent {
   white-space: nowrap;
   transition: left .6s cubic-bezier(.34,1.4,.6,1), top .6s cubic-bezier(.34,1.4,.6,1);
 }
+/* Hollow labels (B's view) sit BELOW the dot — keeps both views readable
+   even when the four dots cluster near the same coordinates. */
+.dot-label.hollow { transform: translate(-50%, calc(0% + 14px)); }
 .dot-label.p1 { background: var(--ink); color: var(--bg); }
 .dot-label.p2 { background: var(--p2-color, var(--accent)); color: white; }
 .dot-label.hollow {
@@ -552,14 +594,38 @@ h1.title .accent {
 }
 
 .legend {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 14px;
-  margin-top: 14px;
-  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0 22px;
+  font-size: 12px;
   color: var(--ink-soft);
+  background: white;
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 3px 3px 0 var(--ink);
 }
-.legend-row { display: flex; align-items: center; gap: 8px; line-height: 1.2; }
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.2;
+}
+.legend-swatches {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.legend-row strong {
+  font-family: var(--font-fraunces), 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
 .legend-swatch {
   width: 14px; height: 14px;
   border-radius: 50%;
@@ -748,7 +814,8 @@ h1.title .accent {
     radial-gradient(circle at 50% 95%, rgba(214,118,81,0.10), transparent 42%);
 }
 .combo-stage {
-  padding: 36px 22px 60px;
+  position: relative;
+  padding: 64px 22px 60px;
   max-width: 720px;
   margin: 0 auto;
   width: 100%;

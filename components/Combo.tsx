@@ -93,6 +93,11 @@ export default function Combo() {
   return (
     <main className="combo-bg">
       <div className="combo-stage">
+        <nav className="quiz-nav">
+          <Link href="/" className="back-link">
+            ← All three quizzes
+          </Link>
+        </nav>
         <header className="combo-hero">
           <div className="eyebrow">All three at once</div>
           <h1>
@@ -243,20 +248,22 @@ function QuizBlock({
     legendNode = (
       <div className="legend">
         <div className="legend-row">
-          <span className="legend-swatch p1" />
-          {n1} by {n1}
+          <span className="legend-swatches">
+            <span className="legend-swatch p1" />
+            <span className="legend-swatch p2" />
+          </span>
+          <span>
+            Solid = <strong>{n1}&apos;s view</strong>
+          </span>
         </div>
         <div className="legend-row">
-          <span className="legend-swatch p2" />
-          {n2} by {n1}
-        </div>
-        <div className="legend-row">
-          <span className="legend-swatch p1 hollow" />
-          {n1} by {n2}
-        </div>
-        <div className="legend-row">
-          <span className="legend-swatch p2 hollow" />
-          {n2} by {n2}
+          <span className="legend-swatches">
+            <span className="legend-swatch p1 hollow" />
+            <span className="legend-swatch p2 hollow" />
+          </span>
+          <span>
+            Outlined = <strong>{n2}&apos;s view</strong>
+          </span>
         </div>
       </div>
     );

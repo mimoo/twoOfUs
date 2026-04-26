@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   arrayToScore,
@@ -105,6 +106,9 @@ export default function Quiz({ quiz }: Props) {
   }
 
   function answer(person: 0 | 1 | 2) {
+    // Guard against extra clicks after the last question while the
+    // 280ms transition to the results screen is still in flight.
+    if (qIndex >= quiz.questions.length) return;
     const q = quiz.questions[qIndex];
     const next = {
       1: { ...scores[1] },
@@ -155,6 +159,11 @@ export default function Quiz({ quiz }: Props) {
   // ─── Render switch ────────────────────────────────────────────
   return (
     <div className="stage">
+      <nav className="quiz-nav">
+        <Link href="/" className="back-link">
+          ← All three quizzes
+        </Link>
+      </nav>
       {stage.kind === "intro" && (
         <Intro
           quiz={quiz}
@@ -290,6 +299,7 @@ function Question({
   onPick: (person: 0 | 1 | 2) => void;
 }) {
   const total = quiz.questions.length;
+  const done = qIndex >= total;
   const safeIdx = Math.min(qIndex, total - 1);
   const q = quiz.questions[safeIdx];
   const progress = (qIndex / total) * 100;
@@ -311,14 +321,26 @@ function Question({
       <div className="q-pov">From your honest point of view.</div>
       <h2 className="question">{q.text}</h2>
       <div className="options">
-        <button className="option opt1" onClick={() => onPick(1)}>
+        <button
+          className="option opt1"
+          onClick={() => onPick(1)}
+          disabled={done}
+        >
           {n1}
         </button>
-        <button className="option opt2" onClick={() => onPick(2)}>
+        <button
+          className="option opt2"
+          onClick={() => onPick(2)}
+          disabled={done}
+        >
           {n2}
         </button>
       </div>
-      <button className="tie-link" onClick={() => onPick(0)}>
+      <button
+        className="tie-link"
+        onClick={() => onPick(0)}
+        disabled={done}
+      >
         Honestly equal — skip
       </button>
     </section>
@@ -551,20 +573,24 @@ function ComparisonResults({
 
       <div className="legend">
         <div className="legend-row">
-          <span className="legend-swatch p1" />
-          {n1} — {n1}&apos;s view
+          <span className="legend-swatches">
+            <span className="legend-swatch p1" />
+            <span className="legend-swatch p2" />
+          </span>
+          <span>
+            Solid dots = <strong>{n1}&apos;s view</strong> (how {n1} sees both
+            of you).
+          </span>
         </div>
         <div className="legend-row">
-          <span className="legend-swatch p2" />
-          {n2} — {n1}&apos;s view
-        </div>
-        <div className="legend-row">
-          <span className="legend-swatch p1 hollow" />
-          {n1} — {n2}&apos;s view
-        </div>
-        <div className="legend-row">
-          <span className="legend-swatch p2 hollow" />
-          {n2} — {n2}&apos;s view
+          <span className="legend-swatches">
+            <span className="legend-swatch p1 hollow" />
+            <span className="legend-swatch p2 hollow" />
+          </span>
+          <span>
+            Outlined rings = <strong>{n2}&apos;s view</strong> (how {n2} sees
+            both of you).
+          </span>
         </div>
       </div>
 
