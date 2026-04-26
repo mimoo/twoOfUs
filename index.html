@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>How are you two, really?</title>
+
+<!-- Open Graph / Twitter -->
+<!-- TODO: replace og:url content with your deployed URL once you have one -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="">
+<meta property="og:title" content="How are you two, really?">
+<meta property="og:description" content="A trilogy of honest relationship diagnostics. Ten minutes each. Affectionate teasing, not therapy.">
+<meta property="og:image" content="og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How are you two, really?">
+<meta name="twitter:description" content="A trilogy of honest relationship diagnostics. Ten minutes each. Affectionate teasing, not therapy.">
+<meta name="twitter:image" content="og-cover.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -185,13 +198,83 @@
   .card.q2 .card-cta { box-shadow: 3px 3px 0 var(--q2-accent); }
   .card.q3 .card-cta { box-shadow: 3px 3px 0 var(--q3-accent); }
 
+  /* PASTE-LINK helper */
+  .paste-row {
+    margin-top: 32px;
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .paste-row label {
+    display: block;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--q3-accent);
+    margin-bottom: 8px;
+  }
+  .paste-input-wrap {
+    display: flex; gap: 8px;
+    align-items: stretch;
+  }
+  .paste-row input {
+    flex: 1; min-width: 0;
+    border: 2px solid var(--ink);
+    background: var(--cream);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    outline: 0;
+  }
+  .paste-row input::placeholder { color: rgba(20,19,31,0.4); }
+  .paste-row input:focus { background: white; }
+  .paste-row button {
+    background: var(--ink); color: var(--cream);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .paste-row button:active { transform: translate(1px, 1px); }
+  .paste-msg {
+    margin-top: 8px;
+    font-size: 12px; line-height: 1.4;
+    color: rgba(20,19,31,0.6);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 1em;
+  }
+  .paste-msg.error { color: var(--q2-accent); }
+
+  /* footer / combo link */
+  .footer-block {
+    margin-top: 36px;
+    text-align: center;
+  }
+  .combo-link {
+    display: inline-block;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: rgba(20,19,31,0.72);
+    text-decoration: none;
+    border-bottom: 1.5px dashed rgba(20,19,31,0.4);
+    padding-bottom: 1px;
+    margin-bottom: 14px;
+  }
+  .combo-link:hover { color: var(--q3-accent); border-color: var(--q3-accent); }
+
   .footer {
     text-align: center;
     font-family: 'Fraunces', serif;
     font-style: italic;
     font-size: 14px;
     color: rgba(20,19,31,0.5);
-    margin-top: 36px;
   }
 </style>
 </head>
@@ -256,8 +339,137 @@
 
   </div>
 
-  <p class="footer">Best taken together, in order. Bring snacks.</p>
+  <!-- Paste-a-link helper -->
+  <div class="paste-row">
+    <label for="pasteInput">Already have results? Paste your link.</label>
+    <div class="paste-input-wrap">
+      <input id="pasteInput" type="url" inputmode="url" autocomplete="off" placeholder="paste #invite=… or #results=… or #trio=…" />
+      <button id="pasteGo" type="button">Go →</button>
+    </div>
+    <div class="paste-msg" id="pasteMsg"></div>
+  </div>
+
+  <div class="footer-block">
+    <a class="combo-link" href="combo.html">See all three at once →</a>
+    <p class="footer">Best taken together, in order. Bring snacks.</p>
+  </div>
 
 </main>
+
+<script>
+(function () {
+  'use strict';
+
+  // base64url JSON decode (mirrors engine.js)
+  function b64urlDecode(str) {
+    let s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+    const pad = s.length % 4;
+    if (pad) s += '='.repeat(4 - pad);
+    let utf8;
+    try { utf8 = atob(s); } catch (e) { return null; }
+    let json;
+    try { json = decodeURIComponent(escape(utf8)); } catch (e) { json = utf8; }
+    try { return JSON.parse(json); } catch (e) { return null; }
+  }
+
+  // Map quiz id → page filename.
+  const QUIZ_PAGES = {
+    relationship: 'relationship-quiz.html',
+    leader:       'leader-quiz.html',
+    grownup:      'grownup-quiz.html',
+  };
+
+  const input = document.getElementById('pasteInput');
+  const btn = document.getElementById('pasteGo');
+  const msg = document.getElementById('pasteMsg');
+
+  function setMsg(text, isError) {
+    msg.textContent = text || '';
+    msg.classList.toggle('error', !!isError);
+  }
+
+  /**
+   * Parse a pasted link and return { page, hash } or { error }.
+   * Accepts:
+   *   - full URLs with a hash (#invite=…, #results=…, #trio=…)
+   *   - bare hashes ("#invite=…" or "invite=…")
+   *   - the encoded payload alone (best-effort: decode, look at .q / .m)
+   */
+  function routeFromInput(raw) {
+    if (!raw) return { error: 'Paste a quiz link first.' };
+    raw = raw.trim();
+
+    // Extract a hash-like fragment.
+    let frag = '';
+    const hashIdx = raw.indexOf('#');
+    if (hashIdx >= 0) {
+      frag = raw.slice(hashIdx + 1);
+    } else if (/^(invite|results|trio)=/.test(raw)) {
+      frag = raw;
+    } else {
+      // Last resort: maybe the whole thing is the encoded payload.
+      const decoded = b64urlDecode(raw);
+      if (decoded && decoded.m) {
+        return routeFromPayload(decoded);
+      }
+      return { error: "That doesn't look like a quiz link." };
+    }
+
+    // frag is now "invite=…" / "results=…" / "trio=…"
+    const eq = frag.indexOf('=');
+    if (eq < 0) return { error: "That link is missing its data part." };
+    const kind = frag.slice(0, eq).toLowerCase();
+    const value = frag.slice(eq + 1);
+
+    if (kind === 'trio') {
+      const data = b64urlDecode(value);
+      if (!data || data.m !== 'trio') return { error: "Couldn't read that trio link." };
+      return { page: 'combo.html', hash: '#trio=' + value };
+    }
+
+    if (kind === 'invite' || kind === 'results') {
+      const data = b64urlDecode(value);
+      if (!data) return { error: "Couldn't decode that link." };
+      const quizId = data.q;
+      if (!quizId || !QUIZ_PAGES[quizId]) {
+        return { error: "Unknown quiz id in that link." };
+      }
+      return { page: QUIZ_PAGES[quizId], hash: '#' + kind + '=' + value };
+    }
+
+    return { error: "Unrecognized link type." };
+  }
+
+  // Used when someone pastes just a base64 payload — we route by .m / .q.
+  function routeFromPayload(data) {
+    if (data.m === 'trio') {
+      // Re-encode? No — we don't have the original encoding. But we can ship them to combo
+      // with an error, or politely ask for the full link. Best to ask.
+      return { error: "Paste the full trio link (the part starting with #trio=)." };
+    }
+    if ((data.m === 'invite' || data.m === 'results' || data.m === 'together') && data.q && QUIZ_PAGES[data.q]) {
+      return { error: "Paste the full link, including the part with # and the long string." };
+    }
+    return { error: "Couldn't make sense of that." };
+  }
+
+  function go() {
+    const result = routeFromInput(input.value);
+    if (result.error) {
+      setMsg(result.error, true);
+      return;
+    }
+    setMsg('Loading…', false);
+    window.location.href = result.page + result.hash;
+  }
+
+  btn.addEventListener('click', go);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); go(); }
+  });
+  // Light realtime feedback as user types (clear errors).
+  input.addEventListener('input', () => { if (msg.classList.contains('error')) setMsg(''); });
+})();
+</script>
 </body>
 </html>
