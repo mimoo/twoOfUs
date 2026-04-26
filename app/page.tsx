@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import QuizCard from "@/components/QuizCard";
 import PasteRouter from "@/components/PasteRouter";
+import heroImg from "@/public/hero.png";
 
 export const metadata: Metadata = {
   title: "How are you two, really?",
@@ -26,15 +28,18 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <main className="landing-bg landing-stage">
-      <header className="hero">
-        <div className="eyebrow">Three quizzes · Two people</div>
-        <h1 className="title">
-          How are you two, <em>really</em>?
+      <header className="hero hero-image">
+        <h1 className="sr-only">
+          How are you two, really? A trilogy of honest relationship diagnostics.
         </h1>
-        <p className="lede">
-          A trilogy of honest relationship diagnostics. Ten minutes each.
-          Affectionate teasing, not therapy.
-        </p>
+        <Image
+          src={heroImg}
+          alt="Three quizzes, two people. How are you two, really? A trilogy of honest relationship diagnostics. Ten minutes each. Affectionate teasing, not therapy."
+          priority
+          sizes="(max-width: 540px) 100vw, 540px"
+          placeholder="blur"
+          className="hero-img"
+        />
       </header>
 
       <div className="deck">

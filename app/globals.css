@@ -76,6 +76,29 @@ body {
 }
 .hero h1.title em { color: var(--q3-accent); font-style: italic; }
 
+.hero-image {
+  margin: 0 auto 32px;
+  display: block;
+}
+.hero-img {
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  border-radius: 22px;
+  box-shadow: 5px 5px 0 var(--ink);
+  display: block;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .deck { display: flex; flex-direction: column; gap: 22px; }
 .card {
   background: white;
