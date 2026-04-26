@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Who leads, who plays?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F4EFE6;
+    --ink: #14131F;
+    --hot: #FF3D2E;        /* electric coral */
+    --hot-soft: #FFD6CF;
+    --lime: #C8F25A;       /* bright chartreuse */
+    --sky: #9FD8FF;        /* electric sky blue */
+    --sun: #FFC93C;        /* sunshine yellow */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(255,61,46,0.10), transparent 42%),
+      radial-gradient(circle at 88% 92%, rgba(159,216,255,0.28), transparent 44%);
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 28px 22px 36px;
+    max-width: 540px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .screen { display: none; animation: fadeIn .35s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--hot);
+    margin-bottom: 14px;
+  }
+
+  /* INTRO */
+  h1.title {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(46px, 12vw, 68px);
+    line-height: 0.92;
+    letter-spacing: -0.025em;
+    margin-bottom: 18px;
+  }
+  h1.title .accent { color: var(--hot); }
+  .lede {
+    font-size: 16px; line-height: 1.55;
+    color: rgba(20,19,31,0.72);
+    margin-bottom: 32px;
+    max-width: 38ch;
+  }
+  .name-fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+  .field {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 16px;
+    padding: 14px 18px 16px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .field label {
+    display: block;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--hot);
+    margin-bottom: 4px;
+  }
+  .field input {
+    width: 100%; border: 0; outline: 0;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: 24px; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .field input::placeholder { color: rgba(20,19,31,0.28); }
+
+  .btn {
+    display: block; width: 100%;
+    background: var(--ink); color: var(--cream);
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 18px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--hot);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--hot); }
+
+  /* QUESTION */
+  .q-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 28px;
+  }
+  .q-count {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(20,19,31,0.55);
+  }
+  .progress {
+    flex: 1; max-width: 200px;
+    height: 6px; background: var(--hot-soft); border-radius: 999px;
+    overflow: hidden;
+    margin-left: 16px;
+  }
+  .progress-bar {
+    height: 100%; background: var(--hot);
+    width: 0; transition: width .4s ease;
+  }
+  .question {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(28px, 7vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    margin-bottom: 32px;
+    min-height: 3.4em;
+  }
+  .options { display: flex; flex-direction: column; gap: 14px; }
+  .option {
+    border: 2px solid var(--ink);
+    border-radius: 18px;
+    padding: 22px 24px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: transform .14s ease, box-shadow .14s ease;
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: 26px; color: var(--ink);
+    word-break: break-word;
+  }
+  .option:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+  .option:nth-child(1) { background: var(--hot-soft); }
+  .option:nth-child(2) { background: var(--lime); }
+  .tie-link {
+    background: none; border: 0; cursor: pointer;
+    margin: 14px auto 0; display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700;
+    color: rgba(20,19,31,0.45);
+    padding: 8px 16px;
+  }
+  .tie-link:active { color: var(--hot); }
+
+  /* RESULTS */
+  .results-title {
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: clamp(38px, 10vw, 56px);
+    line-height: 0.95;
+    margin-bottom: 28px;
+    letter-spacing: -0.025em;
+  }
+
+  .chart-wrap {
+    margin-bottom: 28px;
+    padding: 12px 8px 8px;
+  }
+  .chart-axis-top, .chart-axis-bottom {
+    text-align: center;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink);
+  }
+  .chart-axis-top { margin-bottom: 8px; }
+  .chart-axis-bottom { margin-top: 8px; }
+  .chart-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .chart-axis-side {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    writing-mode: vertical-rl;
+    color: var(--ink);
+  }
+  .chart-axis-side.left { transform: rotate(180deg); }
+  .chart-grid {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .quadrant {
+    display: flex; align-items: center; justify-content: center;
+    padding: 6px;
+  }
+  .quadrant.tl { background: var(--sky); }       /* Dom + Boring = Manager */
+  .quadrant.tr { background: var(--hot-soft); }  /* Dom + Fun = Ringleader */
+  .quadrant.bl { background: var(--cream); border-right:1px solid rgba(20,19,31,0.06); border-top:1px solid rgba(20,19,31,0.06);}  /* Sub + Boring = Anchor */
+  .quadrant.br { background: var(--sun); }       /* Sub + Fun = Hype Person */
+  .quadrant .qname {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(20,19,31,0.55);
+    text-align: center;
+    line-height: 1.05;
+  }
+  .grid-line {
+    position: absolute;
+    background: rgba(20,19,31,0.18);
+    z-index: 1;
+  }
+  .grid-line.h { left: 0; right: 0; top: 50%; height: 1px; }
+  .grid-line.v { top: 0; bottom: 0; left: 50%; width: 1px; }
+  .dot {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    transition: left .6s cubic-bezier(.34,1.4,.6,1), top .6s cubic-bezier(.34,1.4,.6,1);
+  }
+  .dot.p1 { background: var(--ink); }
+  .dot.p2 { background: var(--hot); }
+  .dot-label {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, calc(-100% - 14px));
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    transition: left .6s cubic-bezier(.34,1.4,.6,1), top .6s cubic-bezier(.34,1.4,.6,1);
+  }
+  .dot-label.p1 { background: var(--ink); color: var(--cream); }
+  .dot-label.p2 { background: var(--hot); color: white; }
+
+  .verdict {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 22px;
+    padding: 24px;
+    box-shadow: 5px 5px 0 var(--ink);
+    margin-bottom: 16px;
+  }
+  .verdict.dom-fun     { background: var(--hot-soft); }
+  .verdict.dom-boring  { background: var(--sky); }
+  .verdict.sub-fun     { background: var(--sun); }
+  .verdict.sub-boring  { background: white; }
+  .v-emoji { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+  .v-name {
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: 22px; line-height: 1; margin-bottom: 6px;
+    word-break: break-word;
+  }
+  .v-tags {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink);
+    background: rgba(20,19,31,0.08);
+    padding: 5px 10px; border-radius: 999px;
+    margin-bottom: 14px;
+  }
+  .v-archetype {
+    font-family: 'Fraunces', serif; font-weight: 700;
+    font-size: 34px; line-height: 1.05;
+    margin-bottom: 10px;
+    letter-spacing: -0.015em;
+  }
+  .v-blurb { font-size: 15px; line-height: 1.55; color: rgba(20,19,31,0.78); }
+  .v-scores {
+    display: flex; gap: 12px; margin-top: 14px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(20,19,31,0.55);
+  }
+  .restart { margin-top: 18px; }
+  .footer-note {
+    text-align: center;
+    font-size: 13px; color: rgba(20,19,31,0.45);
+    margin-top: 24px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- INTRO -->
+  <section class="screen active" id="screen-intro">
+    <div class="eyebrow">Part two — the sequel</div>
+    <h1 class="title">Who <span class="accent">leads</span>, who plays?</h1>
+    <p class="lede">Twenty-four questions on two new axes — who takes the lead (dom / sub) and who's the energy in the room (fun / boring). No judgment. Mostly.</p>
+    <div class="name-fields">
+      <div class="field">
+        <label>Person 1</label>
+        <input id="name1" type="text" placeholder="Their name" maxlength="18" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Person 2</label>
+        <input id="name2" type="text" placeholder="Your name" maxlength="18" autocomplete="off" />
+      </div>
+    </div>
+    <button class="btn" onclick="startQuiz()">Begin →</button>
+  </section>
+
+  <!-- QUESTION -->
+  <section class="screen" id="screen-question">
+    <div class="q-header">
+      <div class="q-count" id="qCount">01 / 24</div>
+      <div class="progress"><div class="progress-bar" id="progBar"></div></div>
+    </div>
+    <h2 class="question" id="qText">…</h2>
+    <div class="options">
+      <button class="option" id="opt1" onclick="answer(1)"></button>
+      <button class="option" id="opt2" onclick="answer(2)"></button>
+    </div>
+    <button class="tie-link" onclick="answer(0)">Honestly equal — skip</button>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="screen" id="screen-results">
+    <div class="eyebrow">The verdict is in</div>
+    <h2 class="results-title">Here's the <em>truth</em>.</h2>
+
+    <div class="chart-wrap">
+      <div class="chart-axis-top">Dom</div>
+      <div class="chart-row">
+        <div class="chart-axis-side left">Boring</div>
+        <div class="chart-grid" id="chart">
+          <div class="quadrant tl"><span class="qname">Manager</span></div>
+          <div class="quadrant tr"><span class="qname">Ringleader</span></div>
+          <div class="quadrant bl"><span class="qname">Anchor</span></div>
+          <div class="quadrant br"><span class="qname">Hype Person</span></div>
+          <div class="grid-line h"></div>
+          <div class="grid-line v"></div>
+          <div class="dot p1" id="dot1"></div>
+          <div class="dot p2" id="dot2"></div>
+          <div class="dot-label p1" id="label1">P1</div>
+          <div class="dot-label p2" id="label2">P2</div>
+        </div>
+        <div class="chart-axis-side right">Fun</div>
+      </div>
+      <div class="chart-axis-bottom">Sub</div>
+    </div>
+
+    <div id="verdicts"></div>
+    <button class="btn restart" onclick="restart()">Take it again</button>
+    <p class="footer-note">Diagnosis is non-binding. Probably.</p>
+  </section>
+
+</div>
+
+<script>
+// 24 questions, 6 per axis, interleaved D / F / S / B
+const questions = [
+  { text: "Who makes the first move?",                                       axis: "dom"    },
+  { text: "Who suggests 'let's just go right now' to a random plan?",        axis: "fun"    },
+  { text: "Who asks 'what do you want to do tonight?'",                      axis: "sub"    },
+  { text: "Who says 'we should head home soon'?",                            axis: "boring" },
+
+  { text: "Who plans the date?",                                             axis: "dom"    },
+  { text: "Who orders dessert?",                                             axis: "fun"    },
+  { text: "Who waits for the other to text first?",                          axis: "sub"    },
+  { text: "Who's checking the time at the party?",                           axis: "boring" },
+
+  { text: "Who initiates the difficult conversation?",                       axis: "dom"    },
+  { text: "Who starts dancing first?",                                       axis: "fun"    },
+  { text: "Who lets the other order for them?",                              axis: "sub"    },
+  { text: "Who orders the safe option on the menu?",                         axis: "boring" },
+
+  { text: "Who picks up the menu first and starts deciding?",                axis: "dom"    },
+  { text: "Who talks to strangers at the bar?",                              axis: "fun"    },
+  { text: "Who follows the other's lead in unfamiliar settings?",            axis: "sub"    },
+  { text: "Who says 'maybe tomorrow' to the spontaneous thing?",             axis: "boring" },
+
+  { text: "Who sets the pace of the relationship?",                          axis: "dom"    },
+  { text: "Who's first in the pool, ocean, or onto the dance floor?",        axis: "fun"    },
+  { text: "Who agrees to the plan without weighing in?",                     axis: "sub"    },
+  { text: "Who's in bed by 11?",                                             axis: "boring" },
+
+  { text: "Who decides 'okay, we're doing this' when the group is stalling?", axis: "dom"   },
+  { text: "Who pushes for 'one more drink, one more song'?",                 axis: "fun"    },
+  { text: "Who waits to be told it's time to leave?",                        axis: "sub"    },
+  { text: "Who declines the invitation when they're tired?",                 axis: "boring" }
+];
+
+let name1 = "", name2 = "";
+let qIndex = 0;
+let scores = blankScores();
+
+function blankScores() {
+  return { 1: { dom:0, sub:0, fun:0, boring:0 },
+           2: { dom:0, sub:0, fun:0, boring:0 } };
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function startQuiz() {
+  name1 = document.getElementById('name1').value.trim() || "Person 1";
+  name2 = document.getElementById('name2').value.trim() || "Person 2";
+  qIndex = 0;
+  scores = blankScores();
+  renderQuestion();
+  show('screen-question');
+}
+
+function renderQuestion() {
+  const q = questions[qIndex];
+  document.getElementById('qText').textContent = q.text;
+  document.getElementById('opt1').textContent = name1;
+  document.getElementById('opt2').textContent = name2;
+  document.getElementById('qCount').textContent =
+    String(qIndex + 1).padStart(2,'0') + ' / ' + String(questions.length).padStart(2,'0');
+  document.getElementById('progBar').style.width = (qIndex / questions.length * 100) + '%';
+}
+
+function answer(person) {
+  if (person === 1 || person === 2) {
+    const q = questions[qIndex];
+    scores[person][q.axis] += 1;
+  }
+  qIndex++;
+  if (qIndex >= questions.length) {
+    document.getElementById('progBar').style.width = '100%';
+    setTimeout(showResults, 280);
+  } else {
+    renderQuestion();
+  }
+}
+
+function archetype(domish, funish) {
+  if (domish && funish) return {
+    emoji: "🎪",
+    name: "The Ringleader",
+    blurb: "Drags everyone out, picks the venue, last to leave. The chaos has a captain — and it's them.",
+    klass: "dom-fun"
+  };
+  if (domish && !funish) return {
+    emoji: "📋",
+    name: "The Manager",
+    blurb: "Has opinions about bedtime. Runs a tight ship. The plan is the fun, and the plan ends at 10:30.",
+    klass: "dom-boring"
+  };
+  if (!domish && funish) return {
+    emoji: "🎉",
+    name: "The Hype Person",
+    blurb: "Wouldn't suggest it themselves, but a hard yes to every chaotic idea. Best wingman energy.",
+    klass: "sub-fun"
+  };
+  return {
+    emoji: "🛋️",
+    name: "The Anchor",
+    blurb: "Reliable, low-key, perfectly content on the couch. The voice of reason that quietly vetoes the late-night plan.",
+    klass: "sub-boring"
+  };
+}
+
+function plotDot(dotEl, labelEl, name, dom, sub, fun, boring) {
+  // Each axis has up to 6 questions. Net range -6..+6, normalized to -1..+1.
+  const domNet = (dom - sub) / 6;     // +1 = pure dom, -1 = pure sub
+  const funNet = (fun - boring) / 6;  // +1 = pure fun, -1 = pure boring
+  const margin = 12; // % from edge
+  const xPct = 50 + funNet * (50 - margin);   // right = fun
+  const yPct = 50 - domNet * (50 - margin);   // top = dom
+  dotEl.style.left = xPct + '%';
+  dotEl.style.top = yPct + '%';
+  labelEl.style.left = xPct + '%';
+  labelEl.style.top = yPct + '%';
+  labelEl.textContent = name;
+}
+
+function showResults() {
+  const domNet1 = scores[1].dom - scores[1].sub;
+  const domNet2 = scores[2].dom - scores[2].sub;
+  let p1Dom;
+  if (domNet1 > domNet2) p1Dom = true;
+  else if (domNet1 < domNet2) p1Dom = false;
+  else p1Dom = scores[1].dom >= scores[2].dom;
+
+  const funNet1 = scores[1].fun - scores[1].boring;
+  const funNet2 = scores[2].fun - scores[2].boring;
+  let p1Fun;
+  if (funNet1 > funNet2) p1Fun = true;
+  else if (funNet1 < funNet2) p1Fun = false;
+  else p1Fun = scores[1].fun >= scores[2].fun;
+
+  const a1 = archetype(p1Dom, p1Fun);
+  const a2 = archetype(!p1Dom, !p1Fun);
+  const tag = (d, f) => (d ? "Dom" : "Sub") + " · " + (f ? "Fun" : "Boring");
+
+  show('screen-results');
+  requestAnimationFrame(() => {
+    plotDot(
+      document.getElementById('dot1'),
+      document.getElementById('label1'),
+      name1,
+      scores[1].dom, scores[1].sub, scores[1].fun, scores[1].boring
+    );
+    plotDot(
+      document.getElementById('dot2'),
+      document.getElementById('label2'),
+      name2,
+      scores[2].dom, scores[2].sub, scores[2].fun, scores[2].boring
+    );
+  });
+
+  document.getElementById('verdicts').innerHTML = `
+    <div class="verdict ${a1.klass}">
+      <div class="v-emoji">${a1.emoji}</div>
+      <div class="v-name">${escapeHtml(name1)}</div>
+      <div class="v-tags">${tag(p1Dom, p1Fun)}</div>
+      <div class="v-archetype">${a1.name}</div>
+      <p class="v-blurb">${a1.blurb}</p>
+      <div class="v-scores">
+        <span>D ${scores[1].dom} · S ${scores[1].sub}</span>
+        <span>F ${scores[1].fun} · B ${scores[1].boring}</span>
+      </div>
+    </div>
+    <div class="verdict ${a2.klass}">
+      <div class="v-emoji">${a2.emoji}</div>
+      <div class="v-name">${escapeHtml(name2)}</div>
+      <div class="v-tags">${tag(!p1Dom, !p1Fun)}</div>
+      <div class="v-archetype">${a2.name}</div>
+      <p class="v-blurb">${a2.blurb}</p>
+      <div class="v-scores">
+        <span>D ${scores[2].dom} · S ${scores[2].sub}</span>
+        <span>F ${scores[2].fun} · B ${scores[2].boring}</span>
+      </div>
+    </div>
+  `;
+}
+
+function restart() {
+  if (name1 !== "Person 1") document.getElementById('name1').value = name1;
+  if (name2 !== "Person 2") document.getElementById('name2').value = name2;
+  show('screen-intro');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+</script>
+</body>
+</html>

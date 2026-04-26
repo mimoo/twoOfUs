@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Who does what in the relationship?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FFF1E0;
+    --ink: #1F1226;
+    --pink: #FF4D7E;
+    --pink-soft: #FFDDE6;
+    --mint: #B8E8C8;
+    --yellow: #FFD66B;
+    --lilac: #E8DFFF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 8% 12%, rgba(255,77,126,0.10), transparent 42%),
+      radial-gradient(circle at 92% 88%, rgba(184,232,200,0.22), transparent 44%);
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 28px 22px 36px;
+    max-width: 540px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .screen { display: none; animation: fadeIn .35s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--pink);
+    margin-bottom: 14px;
+  }
+
+  /* INTRO */
+  h1.title {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(46px, 12vw, 68px);
+    line-height: 0.92;
+    letter-spacing: -0.025em;
+    margin-bottom: 18px;
+  }
+  h1.title .accent { color: var(--pink); }
+  .lede {
+    font-size: 16px; line-height: 1.55;
+    color: rgba(31,18,38,0.72);
+    margin-bottom: 32px;
+    max-width: 38ch;
+  }
+  .name-fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+  .field {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 16px;
+    padding: 14px 18px 16px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .field label {
+    display: block;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--pink);
+    margin-bottom: 4px;
+  }
+  .field input {
+    width: 100%; border: 0; outline: 0;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: 24px; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .field input::placeholder { color: rgba(31,18,38,0.28); }
+
+  .btn {
+    display: block; width: 100%;
+    background: var(--ink); color: var(--cream);
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 18px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--pink);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--pink); }
+
+  /* QUESTION */
+  .q-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 28px;
+  }
+  .q-count {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(31,18,38,0.55);
+  }
+  .progress {
+    flex: 1; max-width: 200px;
+    height: 6px; background: var(--pink-soft); border-radius: 999px;
+    overflow: hidden;
+    margin-left: 16px;
+  }
+  .progress-bar {
+    height: 100%; background: var(--pink);
+    width: 0; transition: width .4s ease;
+  }
+  .question {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(28px, 7vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    margin-bottom: 32px;
+    min-height: 3.4em;
+  }
+  .options { display: flex; flex-direction: column; gap: 14px; }
+  .option {
+    border: 2px solid var(--ink);
+    border-radius: 18px;
+    padding: 22px 24px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: transform .14s ease, box-shadow .14s ease;
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: 26px; color: var(--ink);
+    word-break: break-word;
+  }
+  .option:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+  .option:nth-child(1) { background: var(--pink-soft); }
+  .option:nth-child(2) { background: var(--mint); }
+  .tie-link {
+    background: none; border: 0; cursor: pointer;
+    margin: 14px auto 0; display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700;
+    color: rgba(31,18,38,0.45);
+    padding: 8px 16px;
+  }
+  .tie-link:active { color: var(--pink); }
+
+  /* RESULTS */
+  .results-title {
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: clamp(38px, 10vw, 56px);
+    line-height: 0.95;
+    margin-bottom: 28px;
+    letter-spacing: -0.025em;
+  }
+
+  .chart-wrap {
+    margin-bottom: 28px;
+    padding: 12px 8px 8px;
+  }
+  .chart-axis-top, .chart-axis-bottom {
+    text-align: center;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink);
+  }
+  .chart-axis-top { margin-bottom: 8px; }
+  .chart-axis-bottom { margin-top: 8px; }
+  .chart-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .chart-axis-side {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    writing-mode: vertical-rl;
+    color: var(--ink);
+  }
+  .chart-axis-side.left { transform: rotate(180deg); }
+  .chart-grid {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .quadrant {
+    display: flex; align-items: center; justify-content: center;
+    padding: 6px;
+  }
+  .quadrant.tl { background: var(--mint); }
+  .quadrant.tr { background: var(--pink-soft); }
+  .quadrant.bl { background: var(--lilac); }
+  .quadrant.br { background: var(--yellow); }
+  .quadrant .qname {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(31,18,38,0.5);
+    text-align: center;
+    line-height: 1.05;
+  }
+  .grid-line {
+    position: absolute;
+    background: rgba(31,18,38,0.18);
+    z-index: 1;
+  }
+  .grid-line.h { left: 0; right: 0; top: 50%; height: 1px; }
+  .grid-line.v { top: 0; bottom: 0; left: 50%; width: 1px; }
+  .dot {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    transition: left .6s cubic-bezier(.34,1.4,.6,1), top .6s cubic-bezier(.34,1.4,.6,1);
+  }
+  .dot.p1 { background: var(--ink); }
+  .dot.p2 { background: var(--pink); }
+  .dot-label {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, calc(-100% - 14px));
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    transition: left .6s cubic-bezier(.34,1.4,.6,1), top .6s cubic-bezier(.34,1.4,.6,1);
+  }
+  .dot-label.p1 { background: var(--ink); color: var(--cream); }
+  .dot-label.p2 { background: var(--pink); color: white; }
+
+  .verdict {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 22px;
+    padding: 24px;
+    box-shadow: 5px 5px 0 var(--ink);
+    margin-bottom: 16px;
+  }
+  .verdict.tyrant-mother { background: var(--pink-soft); }
+  .verdict.tyrant-baby { background: var(--yellow); }
+  .verdict.serf-mother { background: var(--mint); }
+  .verdict.serf-baby { background: var(--lilac); }
+  .v-emoji { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+  .v-name {
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 700;
+    font-size: 22px; line-height: 1; margin-bottom: 6px;
+    word-break: break-word;
+  }
+  .v-tags {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink);
+    background: rgba(31,18,38,0.08);
+    padding: 5px 10px; border-radius: 999px;
+    margin-bottom: 14px;
+  }
+  .v-archetype {
+    font-family: 'Fraunces', serif; font-weight: 700;
+    font-size: 34px; line-height: 1.05;
+    margin-bottom: 10px;
+    letter-spacing: -0.015em;
+  }
+  .v-blurb { font-size: 15px; line-height: 1.55; color: rgba(31,18,38,0.78); }
+  .v-scores {
+    display: flex; gap: 12px; margin-top: 14px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(31,18,38,0.55);
+  }
+  .restart { margin-top: 18px; }
+  .footer-note {
+    text-align: center;
+    font-size: 13px; color: rgba(31,18,38,0.45);
+    margin-top: 24px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- INTRO -->
+  <section class="screen active" id="screen-intro">
+    <div class="eyebrow">A relationship diagnostic</div>
+    <h1 class="title">Who does <span class="accent">what</span> in your relationship?</h1>
+    <p class="lede">Twenty-four honest questions across two axes — care direction (mother / baby) and whose preferences win (tyrant / serf). At the end you'll see exactly where you both land.</p>
+    <div class="name-fields">
+      <div class="field">
+        <label>Person 1</label>
+        <input id="name1" type="text" placeholder="Their name" maxlength="18" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Person 2</label>
+        <input id="name2" type="text" placeholder="Your name" maxlength="18" autocomplete="off" />
+      </div>
+    </div>
+    <button class="btn" onclick="startQuiz()">Begin →</button>
+  </section>
+
+  <!-- QUESTION -->
+  <section class="screen" id="screen-question">
+    <div class="q-header">
+      <div class="q-count" id="qCount">01 / 24</div>
+      <div class="progress"><div class="progress-bar" id="progBar"></div></div>
+    </div>
+    <h2 class="question" id="qText">…</h2>
+    <div class="options">
+      <button class="option" id="opt1" onclick="answer(1)"></button>
+      <button class="option" id="opt2" onclick="answer(2)"></button>
+    </div>
+    <button class="tie-link" onclick="answer(0)">Honestly equal — skip</button>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="screen" id="screen-results">
+    <div class="eyebrow">The verdict is in</div>
+    <h2 class="results-title">Here's the <em>truth</em>.</h2>
+
+    <div class="chart-wrap">
+      <div class="chart-axis-top">Mother</div>
+      <div class="chart-row">
+        <div class="chart-axis-side left">Serf</div>
+        <div class="chart-grid" id="chart">
+          <div class="quadrant tl"><span class="qname">Caretaker</span></div>
+          <div class="quadrant tr"><span class="qname">Matriarch</span></div>
+          <div class="quadrant bl"><span class="qname">Puppy</span></div>
+          <div class="quadrant br"><span class="qname">Royal Baby</span></div>
+          <div class="grid-line h"></div>
+          <div class="grid-line v"></div>
+          <div class="dot p1" id="dot1"></div>
+          <div class="dot p2" id="dot2"></div>
+          <div class="dot-label p1" id="label1">P1</div>
+          <div class="dot-label p2" id="label2">P2</div>
+        </div>
+        <div class="chart-axis-side right">Tyrant</div>
+      </div>
+      <div class="chart-axis-bottom">Baby</div>
+    </div>
+
+    <div id="verdicts"></div>
+    <button class="btn restart" onclick="restart()">Take it again</button>
+    <p class="footer-note">Diagnosis is non-binding. Probably.</p>
+  </section>
+
+</div>
+
+<script>
+// 24 questions, 6 per axis, interleaved M/T/B/S
+const questions = [
+  { text: "Who packs snacks 'just in case'?",                              axis: "mother" },
+  { text: "Who picks the restaurant?",                                     axis: "tyrant" },
+  { text: "Who falls asleep on the other in the car or on the couch?",     axis: "baby"   },
+  { text: "Who says 'whatever you want' — and means it?",                  axis: "serf"   },
+
+  { text: "Who texts 'did you eat today?' or 'let me know when you land'?", axis: "mother" },
+  { text: "Who controls the thermostat or AC remote?",                     axis: "tyrant" },
+  { text: "Who hands packages to the other to open?",                      axis: "baby"   },
+  { text: "Who apologizes first after a fight?",                           axis: "serf"   },
+
+  { text: "Who remembers the other's mom's birthday?",                     axis: "mother" },
+  { text: "Who picks the show on TV?",                                     axis: "tyrant" },
+  { text: "Who throws a hangry tantrum?",                                  axis: "baby"   },
+  { text: "Who carries the bags?",                                         axis: "serf"   },
+
+  { text: "Who notices when the other is quiet and asks what's wrong?",    axis: "mother" },
+  { text: "Who orders for the table at a restaurant?",                     axis: "tyrant" },
+  { text: "Who lets the other deal with the waiter or customer service?",  axis: "baby"   },
+  { text: "Who reshuffles their schedule to fit the other's?",             axis: "serf"   },
+
+  { text: "Who saves the last bite or the unbroken cookie for the other?", axis: "mother" },
+  { text: "Who decides when to leave a party?",                            axis: "tyrant" },
+  { text: "Who says 'where's my…' while it's right in front of them?",     axis: "baby"   },
+  { text: "Who sits through shows they don't enjoy?",                      axis: "serf"   },
+
+  { text: "Who books appointments the other keeps putting off?",           axis: "mother" },
+  { text: "Whose aesthetic does the home quietly run on?",                 axis: "tyrant" },
+  { text: "Who eats off the other's plate?",                               axis: "baby"   },
+  { text: "Who gives up the window seat, the aux cord, the last word?",    axis: "serf"   }
+];
+
+let name1 = "", name2 = "";
+let qIndex = 0;
+let scores = blankScores();
+
+function blankScores() {
+  return { 1: { mother:0, baby:0, tyrant:0, serf:0 },
+           2: { mother:0, baby:0, tyrant:0, serf:0 } };
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function startQuiz() {
+  name1 = document.getElementById('name1').value.trim() || "Person 1";
+  name2 = document.getElementById('name2').value.trim() || "Person 2";
+  qIndex = 0;
+  scores = blankScores();
+  renderQuestion();
+  show('screen-question');
+}
+
+function renderQuestion() {
+  const q = questions[qIndex];
+  document.getElementById('qText').textContent = q.text;
+  document.getElementById('opt1').textContent = name1;
+  document.getElementById('opt2').textContent = name2;
+  document.getElementById('qCount').textContent =
+    String(qIndex + 1).padStart(2,'0') + ' / ' + String(questions.length).padStart(2,'0');
+  document.getElementById('progBar').style.width = (qIndex / questions.length * 100) + '%';
+}
+
+function answer(person) {
+  // 0 = tie/skip, no points either way
+  if (person === 1 || person === 2) {
+    const q = questions[qIndex];
+    scores[person][q.axis] += 1;
+  }
+  qIndex++;
+  if (qIndex >= questions.length) {
+    document.getElementById('progBar').style.width = '100%';
+    setTimeout(showResults, 280);
+  } else {
+    renderQuestion();
+  }
+}
+
+function archetype(motherish, tyrantish) {
+  if (motherish && tyrantish) return {
+    emoji: "👑🍼",
+    name: "The Matriarch",
+    blurb: "Runs the show, packs the snacks, picks the movie. Loving but unmistakably in charge — God bless.",
+    klass: "tyrant-mother"
+  };
+  if (motherish && !tyrantish) return {
+    emoji: "🌷",
+    name: "The Caretaker",
+    blurb: "Will do anything for you and ask for nothing back. A walking saint with a tote bag full of band-aids.",
+    klass: "serf-mother"
+  };
+  if (!motherish && tyrantish) return {
+    emoji: "👶👑",
+    name: "The Royal Baby",
+    blurb: "Demands snacks. Picks the restaurant. Will not be cold. Somehow gets away with all of it because they're so cute about it.",
+    klass: "tyrant-baby"
+  };
+  return {
+    emoji: "🐶",
+    name: "The Puppy",
+    blurb: "Easy, breezy, agreeable. Whatever you want, sweetie. Asleep on the couch by 9pm.",
+    klass: "serf-baby"
+  };
+}
+
+function plotDot(dotEl, labelEl, name, motherScore, babyScore, tyrantScore, serfScore) {
+  // Each axis has up to 6 questions. Net score range is roughly -6..+6.
+  // Normalize to -1..+1, then map to chart % with margin.
+  const motherNet = (motherScore - babyScore) / 6;   // +1 = pure mother, -1 = pure baby
+  const tyrantNet = (tyrantScore - serfScore) / 6;   // +1 = pure tyrant, -1 = pure serf
+  const margin = 12; // % from edge
+  const xPct = 50 + tyrantNet * (50 - margin);
+  const yPct = 50 - motherNet * (50 - margin); // invert: top = mother
+  dotEl.style.left = xPct + '%';
+  dotEl.style.top = yPct + '%';
+  labelEl.style.left = xPct + '%';
+  labelEl.style.top = yPct + '%';
+  labelEl.textContent = name;
+}
+
+function showResults() {
+  const motherNet1 = scores[1].mother - scores[1].baby;
+  const motherNet2 = scores[2].mother - scores[2].baby;
+  let p1Mother;
+  if (motherNet1 > motherNet2) p1Mother = true;
+  else if (motherNet1 < motherNet2) p1Mother = false;
+  else p1Mother = scores[1].mother >= scores[2].mother;
+
+  const tyrantNet1 = scores[1].tyrant - scores[1].serf;
+  const tyrantNet2 = scores[2].tyrant - scores[2].serf;
+  let p1Tyrant;
+  if (tyrantNet1 > tyrantNet2) p1Tyrant = true;
+  else if (tyrantNet1 < tyrantNet2) p1Tyrant = false;
+  else p1Tyrant = scores[1].tyrant >= scores[2].tyrant;
+
+  const a1 = archetype(p1Mother, p1Tyrant);
+  const a2 = archetype(!p1Mother, !p1Tyrant);
+  const tag = (m, t) => (m ? "Mother" : "Baby") + " · " + (t ? "Tyrant" : "Serf");
+
+  show('screen-results');
+  requestAnimationFrame(() => {
+    plotDot(
+      document.getElementById('dot1'),
+      document.getElementById('label1'),
+      name1,
+      scores[1].mother, scores[1].baby, scores[1].tyrant, scores[1].serf
+    );
+    plotDot(
+      document.getElementById('dot2'),
+      document.getElementById('label2'),
+      name2,
+      scores[2].mother, scores[2].baby, scores[2].tyrant, scores[2].serf
+    );
+  });
+
+  document.getElementById('verdicts').innerHTML = `
+    <div class="verdict ${a1.klass}">
+      <div class="v-emoji">${a1.emoji}</div>
+      <div class="v-name">${escapeHtml(name1)}</div>
+      <div class="v-tags">${tag(p1Mother, p1Tyrant)}</div>
+      <div class="v-archetype">${a1.name}</div>
+      <p class="v-blurb">${a1.blurb}</p>
+      <div class="v-scores">
+        <span>M ${scores[1].mother} · B ${scores[1].baby}</span>
+        <span>T ${scores[1].tyrant} · S ${scores[1].serf}</span>
+      </div>
+    </div>
+    <div class="verdict ${a2.klass}">
+      <div class="v-emoji">${a2.emoji}</div>
+      <div class="v-name">${escapeHtml(name2)}</div>
+      <div class="v-tags">${tag(!p1Mother, !p1Tyrant)}</div>
+      <div class="v-archetype">${a2.name}</div>
+      <p class="v-blurb">${a2.blurb}</p>
+      <div class="v-scores">
+        <span>M ${scores[2].mother} · B ${scores[2].baby}</span>
+        <span>T ${scores[2].tyrant} · S ${scores[2].serf}</span>
+      </div>
+    </div>
+  `;
+}
+
+function restart() {
+  if (name1 !== "Person 1") document.getElementById('name1').value = name1;
+  if (name2 !== "Person 2") document.getElementById('name2').value = name2;
+  show('screen-intro');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+</script>
+</body>
+</html>
